@@ -1,0 +1,29 @@
+:root {
+  --color-fondo: #F4F6F8;
+  --color-superficie: #FFFFFF;
+  --color-borde: #E2E5E9;
+  --color-texto-principal: #1F2933;
+  --color-texto-secundario: #6B7280;
+  --color-acento: #2E5C8A;
+  --color-acento-hover: #234A70;
+  --color-error: #C0392B;
+  --color-error-fondo: #FBEAE8;
+
+  --radio-borde: 10px;
+  --fuente-principal: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fuente-principal);
+  background-color: var(--color-fondo);
+  color: var(--color-texto-principal);
+}
+
+#root {
+  min-height: 100vh;
+}

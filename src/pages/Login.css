@@ -1,0 +1,99 @@
+.login-pagina {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-fondo);
+  padding: 20px;
+}
+
+.login-tarjeta {
+  background-color: var(--color-superficie);
+  border: 0.5px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  padding: 40px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.login-encabezado {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-icono {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.login-encabezado h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--color-texto-principal);
+}
+
+.login-encabezado p {
+  font-size: 13px;
+  color: var(--color-texto-secundario);
+  margin: 0;
+}
+
+.login-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-formulario label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-texto-secundario);
+  margin-top: 12px;
+}
+
+.login-formulario input {
+  padding: 10px 12px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.login-formulario input:focus {
+  border-color: var(--color-acento);
+}
+
+.login-error {
+  background-color: var(--color-error-fondo);
+  color: var(--color-error);
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.login-formulario button {
+  margin-top: 20px;
+  padding: 11px;
+  background-color: var(--color-acento);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.login-formulario button:hover:not(:disabled) {
+  background-color: var(--color-acento-hover);
+}
+
+.login-formulario button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
