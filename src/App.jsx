@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Inicio from './pages/Inicio';
 import Alumnos from './pages/Alumnos';
+import Personal from './pages/Personal';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -37,7 +38,7 @@ function RutasDeLaApp() {
         }
       >
         <Route index element={<Inicio />} />
-        <Route path="personal" element={<ProximamenteDisponible nombre="Personal" />} />
+        <Route path="personal" element={<Personal />} />
         <Route path="alumnos" element={<Alumnos />} />
         <Route path="boletines" element={<ProximamenteDisponible nombre="Boletines" />} />
         <Route path="inasistencias" element={<ProximamenteDisponible nombre="Inasistencias" />} />
