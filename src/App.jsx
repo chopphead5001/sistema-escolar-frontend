@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Layout from './components/Layout';
 import Login from './pages/Login';
 import Inicio from './pages/Inicio';
 
-// Componente que protege rutas: si no hay sesión, manda al login
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
   if (!usuario) {
@@ -12,18 +12,39 @@ function RutaProtegida({ children }) {
   return children;
 }
 
+// Pantalla temporal mientras no construimos cada módulo en detalle
+function ProximamenteDisponible({ nombre }) {
+  return (
+    <div>
+      <h1>{nombre}</h1>
+      <p>Esta sección está en construcción.</p>
+    </div>
+  );
+}
+
 function RutasDeLaApp() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+
       <Route
         path="/"
         element={
           <RutaProtegida>
-            <Inicio />
+            <Layout />
           </RutaProtegida>
         }
-      />
+      >
+        <Route index element={<Inicio />} />
+        <Route path="personal" element={<ProximamenteDisponible nombre="Personal" />} />
+        <Route path="alumnos" element={<ProximamenteDisponible nombre="Alumnos" />} />
+        <Route path="boletines" element={<ProximamenteDisponible nombre="Boletines" />} />
+        <Route path="inasistencias" element={<ProximamenteDisponible nombre="Inasistencias" />} />
+        <Route path="partes-diarios" element={<ProximamenteDisponible nombre="Partes diarios" />} />
+        <Route path="licencias" element={<ProximamenteDisponible nombre="Licencias" />} />
+        <Route path="materias-adeudadas" element={<ProximamenteDisponible nombre="Materias adeudadas" />} />
+        <Route path="informes" element={<ProximamenteDisponible nombre="Informes" />} />
+      </Route>
     </Routes>
   );
 }
