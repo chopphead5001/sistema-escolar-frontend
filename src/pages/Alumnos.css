@@ -1,0 +1,122 @@
+.alumnos-pagina {
+  max-width: 900px;
+}
+
+.alumnos-encabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.alumnos-encabezado h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.alumnos-encabezado button {
+  padding: 9px 16px;
+  background-color: var(--color-acento);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.alumnos-encabezado button:hover {
+  background-color: var(--color-acento-hover);
+}
+
+.alumnos-error {
+  background-color: var(--color-error-fondo);
+  color: var(--color-error);
+  font-size: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.alumnos-formulario {
+  background-color: var(--color-superficie);
+  border: 0.5px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.alumnos-formulario-fila {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.alumnos-formulario-fila > div {
+  flex: 1;
+}
+
+.alumnos-formulario label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-texto-secundario);
+  margin-bottom: 4px;
+}
+
+.alumnos-formulario input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.alumnos-formulario button[type="submit"] {
+  padding: 9px 16px;
+  background-color: var(--color-acento);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.alumnos-vacio {
+  color: var(--color-texto-secundario);
+  font-size: 14px;
+}
+
+.alumnos-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-superficie);
+  border: 0.5px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  overflow: hidden;
+}
+
+.alumnos-tabla th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid var(--color-borde);
+  background-color: var(--color-fondo);
+}
+
+.alumnos-tabla td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 0.5px solid var(--color-borde);
+}
+
+.alumnos-tabla tr:last-child td {
+  border-bottom: none;
+}

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Inicio from './pages/Inicio';
+import Alumnos from './pages/Alumnos';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -37,7 +38,7 @@ function RutasDeLaApp() {
       >
         <Route index element={<Inicio />} />
         <Route path="personal" element={<ProximamenteDisponible nombre="Personal" />} />
-        <Route path="alumnos" element={<ProximamenteDisponible nombre="Alumnos" />} />
+        <Route path="alumnos" element={<Alumnos />} />
         <Route path="boletines" element={<ProximamenteDisponible nombre="Boletines" />} />
         <Route path="inasistencias" element={<ProximamenteDisponible nombre="Inasistencias" />} />
         <Route path="partes-diarios" element={<ProximamenteDisponible nombre="Partes diarios" />} />
