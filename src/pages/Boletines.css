@@ -1,0 +1,93 @@
+.boletines-tabla select,
+.boletines-tabla input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.boletines-input-nota {
+  width: 70px;
+}
+
+.boletines-link-plan {
+  background: none;
+  border: none;
+  color: var(--color-acento);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 0 0;
+  text-decoration: underline;
+}
+
+.boletines-panel-plan {
+  margin-top: 14px;
+  padding: 14px;
+  background-color: var(--color-fondo);
+  border-radius: 8px;
+}
+
+.boletines-panel-plan-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--color-texto-principal);
+}
+
+.boletines-lista-plan {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.boletines-lista-plan li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--color-superficie);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.boletines-lista-plan li button {
+  background: none;
+  border: none;
+  color: var(--color-error);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.boletines-vacio-plan {
+  color: var(--color-texto-secundario);
+  font-style: italic;
+  background-color: transparent !important;
+}
+
+.boletines-agregar-plan {
+  display: flex;
+  gap: 8px;
+}
+
+.boletines-agregar-plan select {
+  flex: 1;
+  padding: 8px 10px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.boletines-agregar-plan button {
+  padding: 8px 14px;
+  background-color: var(--color-acento);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}

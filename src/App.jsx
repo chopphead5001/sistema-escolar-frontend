@@ -6,6 +6,7 @@ import Inicio from './pages/Inicio';
 import Alumnos from './pages/Alumnos';
 import Personal from './pages/Personal';
 import Inasistencias from './pages/Inasistencias';
+import Boletines from './pages/Boletines';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -41,7 +42,7 @@ function RutasDeLaApp() {
         <Route index element={<Inicio />} />
         <Route path="personal" element={<Personal />} />
         <Route path="alumnos" element={<Alumnos />} />
-        <Route path="boletines" element={<ProximamenteDisponible nombre="Boletines" />} />
+        <Route path="boletines" element={<Boletines />} />
         <Route path="inasistencias" element={<Inasistencias />} />
         <Route path="partes-diarios" element={<ProximamenteDisponible nombre="Partes diarios" />} />
         <Route path="licencias" element={<ProximamenteDisponible nombre="Licencias" />} />
