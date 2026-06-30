@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCicloLectivo } from '../context/CicloLectivoContext';
 import cliente from '../api/cliente';
-import './Alumnos.css'; // reutilizamos los mismos estilos de tabla y formulario
+import './Alumnos.css';
 
 function Personal() {
   const { usuario } = useAuth();
+  const { cicloLectivo } = useCicloLectivo();
 
   if (usuario.rol !== 'SECRETARIA') {
     return (
@@ -67,7 +69,7 @@ function Personal() {
   return (
     <div className="alumnos-pagina">
       <div className="alumnos-encabezado">
-        <h1>Personal</h1>
+        <h1>Personal — Ciclo {cicloLectivo}</h1>
         <button onClick={() => setMostrarFormulario(!mostrarFormulario)}>
           {mostrarFormulario ? 'Cancelar' : '+ Nueva persona'}
         </button>
@@ -136,18 +138,29 @@ function Personal() {
               <th>DNI</th>
               <th>Apellido y nombre</th>
               <th>Tipo</th>
-              <th>Cargos vigentes</th>
+              <th>Cargos vigentes en {cicloLectivo}</th>
             </tr>
           </thead>
           <tbody>
-            {personas.map((persona) => (
-              <tr key={persona.id}>
-                <td>{persona.dni}</td>
-                <td>{persona.apellido}, {persona.nombre}</td>
-                <td>{etiquetaTipo[persona.tipo]}</td>
-                <td>{persona.cargos.filter(c => c.vigente).length}</td>
-              </tr>
-            ))}
+            {personas.map((persona) => {
+              const cargosDelCiclo = persona.cargos.filter(
+                (c) => c.vigente && c.cicloLectivo === cicloLectivo
+              );
+              return (
+                <tr key={persona.id}>
+                  <td>{persona.dni}</td>
+                  <td>{persona.apellido}, {persona.nombre}</td>
+                  <td>{etiquetaTipo[persona.tipo]}</td>
+                  <td>
+                    {cargosDelCiclo.length === 0
+                      ? '-'
+                      : cargosDelCiclo
+                          .map((c) => c.division ? `${c.nombreCargo} (${c.division})` : c.nombreCargo)
+                          .join(', ')}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

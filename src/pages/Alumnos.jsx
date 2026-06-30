@@ -12,12 +12,16 @@ function Alumnos() {
   const [alumnos, setAlumnos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [mensajeExito, setMensajeExito] = useState('');
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nuevoAlumno, setNuevoAlumno] = useState({
     dni: '', nombre: '', apellido: '', division: '', cicloLectivo
   });
   const [guardando, setGuardando] = useState(false);
+
+  const [promoviendoId, setPromoviendoId] = useState(null);
+  const [divisionDestino, setDivisionDestino] = useState('');
 
   async function cargarAlumnos() {
     setCargando(true);
@@ -60,6 +64,35 @@ function Alumnos() {
     alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo)
   );
 
+  const alumnosParaPromover = alumnos.filter((alumno) => {
+    const yaTieneEsteCiclo = alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo);
+    const teniaCicloAnterior = alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo - 1);
+    return !yaTieneEsteCiclo && teniaCicloAnterior;
+  });
+
+  const todasLasDivisionesConocidas = [...new Set(
+    alumnos.flatMap((a) => a.matriculas.map((m) => m.division))
+  )].sort();
+
+  async function promoverAlumno(alumnoId) {
+    if (!divisionDestino) {
+      setError('Elegí la división de destino antes de confirmar');
+      return;
+    }
+    try {
+      await cliente.post(`/alumnos/${alumnoId}/promover`, {
+        cicloLectivo,
+        division: divisionDestino
+      });
+      setMensajeExito('Alumno promovido correctamente');
+      setPromoviendoId(null);
+      setDivisionDestino('');
+      cargarAlumnos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo promover al alumno');
+    }
+  }
+
   return (
     <div className="alumnos-pagina">
       <div className="alumnos-encabezado">
@@ -72,6 +105,7 @@ function Alumnos() {
       </div>
 
       {error && <div className="alumnos-error">{error}</div>}
+      {mensajeExito && <div className="inasistencias-exito">{mensajeExito}</div>}
 
       {mostrarFormulario && (
         <form onSubmit={manejarAlta} className="alumnos-formulario">
@@ -129,6 +163,40 @@ function Alumnos() {
             {guardando ? 'Guardando...' : 'Guardar alumno'}
           </button>
         </form>
+      )}
+
+      {esSecretaria && alumnosParaPromover.length > 0 && (
+        <div className="alumnos-panel-promover">
+          <p className="alumnos-panel-promover-titulo">
+            {alumnosParaPromover.length} alumno(s) del ciclo {cicloLectivo - 1} todavía no fueron promovidos a {cicloLectivo}:
+          </p>
+          <ul className="alumnos-lista-promover">
+            {alumnosParaPromover.map((alumno) => {
+              const matriculaAnterior = alumno.matriculas.find((m) => m.cicloLectivo === cicloLectivo - 1);
+              return (
+                <li key={alumno.id}>
+                  <span>
+                    {alumno.apellido}, {alumno.nombre} — venía de {matriculaAnterior?.division}
+                  </span>
+                  {promoviendoId === alumno.id ? (
+                    <span className="alumnos-promover-acciones">
+                      <select value={divisionDestino} onChange={(e) => setDivisionDestino(e.target.value)}>
+                        <option value="">Nueva división...</option>
+                        {todasLasDivisionesConocidas.map((division) => (
+                          <option key={division} value={division}>{division}</option>
+                        ))}
+                      </select>
+                      <button onClick={() => promoverAlumno(alumno.id)}>Confirmar</button>
+                      <button onClick={() => { setPromoviendoId(null); setDivisionDestino(''); }}>Cancelar</button>
+                    </span>
+                  ) : (
+                    <button onClick={() => setPromoviendoId(alumno.id)}>Promover</button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       {cargando ? (

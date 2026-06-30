@@ -120,3 +120,60 @@
 .alumnos-tabla tr:last-child td {
   border-bottom: none;
 }
+
+.alumnos-panel-promover {
+  background-color: #FFF4D6;
+  border-radius: var(--radio-borde);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.alumnos-panel-promover-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: #8A6D00;
+}
+
+.alumnos-lista-promover {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alumnos-lista-promover li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--color-superficie);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.alumnos-promover-acciones {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.alumnos-promover-acciones input {
+  padding: 6px 8px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 12px;
+  width: 130px;
+}
+
+.alumnos-promover-acciones button,
+.alumnos-lista-promover > li > button {
+  padding: 5px 10px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 6px;
+  background-color: var(--color-fondo);
+  font-size: 12px;
+  cursor: pointer;
+}
