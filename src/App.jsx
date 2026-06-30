@@ -9,6 +9,7 @@ import Inasistencias from './pages/Inasistencias';
 import Boletines from './pages/Boletines';
 import MateriasAdeudadas from './pages/MateriasAdeudadas';
 import { CicloLectivoProvider } from './context/CicloLectivoContext';
+import Cargos from './pages/Cargos';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -43,6 +44,7 @@ function RutasDeLaApp() {
       >
         <Route index element={<Inicio />} />
         <Route path="personal" element={<Personal />} />
+        <Route path="cargos" element={<Cargos />} />
         <Route path="alumnos" element={<Alumnos />} />
         <Route path="boletines" element={<Boletines />} />
         <Route path="inasistencias" element={<Inasistencias />} />

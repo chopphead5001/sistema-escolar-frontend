@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useCicloLectivo } from '../context/CicloLectivoContext';
 import cliente from '../api/cliente';
 import './Alumnos.css';
 import './Inasistencias.css';
 
 function Inasistencias() {
+  const { cicloLectivo } = useCicloLectivo();
+
   const [alumnos, setAlumnos] = useState([]);
   const [cargandoAlumnos, setCargandoAlumnos] = useState(true);
   const [error, setError] = useState('');
@@ -57,13 +60,15 @@ function Inasistencias() {
   }, [divisionSeleccionada, fecha]);
 
   const divisiones = [...new Set(
-    alumnos.map(a => a.matriculas[a.matriculas.length - 1]?.division).filter(Boolean)
+    alumnos
+      .flatMap(a => a.matriculas)
+      .filter(m => m.cicloLectivo === cicloLectivo)
+      .map(m => m.division)
   )].sort();
 
-  const alumnosDelCurso = alumnos.filter(a => {
-    const division = a.matriculas[a.matriculas.length - 1]?.division;
-    return division === divisionSeleccionada;
-  });
+  const alumnosDelCurso = alumnos.filter(a =>
+    a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.division === divisionSeleccionada)
+  );
 
   function actualizarMarca(alumnoId, campo, valor) {
     setMarcas((anterior) => {
@@ -94,7 +99,7 @@ function Inasistencias() {
     try {
       await cliente.post('/inasistencias/confirmar-dia', {
         division: divisionSeleccionada,
-        cicloLectivo: 2026,
+        cicloLectivo,
         fecha,
         huboClase: true
       });
@@ -103,7 +108,7 @@ function Inasistencias() {
         await cliente.post('/inasistencias', {
           alumnoId: parseInt(alumnoId),
           division: divisionSeleccionada,
-          cicloLectivo: 2026,
+          cicloLectivo,
           fecha,
           ...marca
         });
@@ -126,7 +131,7 @@ function Inasistencias() {
   return (
     <div className="alumnos-pagina">
       <div className="alumnos-encabezado">
-        <h1>Inasistencias — Parte diario por curso</h1>
+        <h1>Inasistencias — Parte diario por curso (Ciclo {cicloLectivo})</h1>
       </div>
 
       {error && <div className="alumnos-error">{error}</div>}
@@ -174,7 +179,7 @@ function Inasistencias() {
       ) : !divisionSeleccionada || !fecha ? (
         <p className="alumnos-vacio">Elegí una división y una fecha para cargar el parte del día.</p>
       ) : alumnosDelCurso.length === 0 ? (
-        <p className="alumnos-vacio">No hay alumnos cargados en esa división todavía.</p>
+        <p className="alumnos-vacio">No hay alumnos cargados en esa división para este ciclo.</p>
       ) : (
         <>
           <table className="alumnos-tabla inasistencias-tabla-curso">

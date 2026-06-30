@@ -29,6 +29,7 @@ function Layout() {
           <NavLink to="/" end>Inicio</NavLink>
 
           {esSecretaria && <NavLink to="/personal">Personal</NavLink>}
+          {esSecretaria && <NavLink to="/cargos">Cargos</NavLink>}
           <NavLink to="/alumnos">Alumnos</NavLink>
           <NavLink to="/boletines">Boletines</NavLink>
           <NavLink to="/inasistencias">Inasistencias</NavLink>
