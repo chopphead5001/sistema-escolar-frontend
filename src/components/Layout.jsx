@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Layout.css';
+import { useCicloLectivo } from '../context/CicloLectivoContext';
 
 function Layout() {
   const { usuario, cerrarSesion } = useAuth();
+  const { cicloLectivo, setCicloLectivo } = useCicloLectivo();
   const esSecretaria = usuario.rol === 'SECRETARIA';
 
   return (
@@ -12,6 +14,15 @@ function Layout() {
         <div className="layout-marca">
           <span className="layout-marca-icono">🏫</span>
           <span className="layout-marca-texto">Gestión Escolar</span>
+        </div>
+
+        <div className="layout-ciclo">
+          <label>Ciclo lectivo</label>
+          <select value={cicloLectivo} onChange={(e) => setCicloLectivo(parseInt(e.target.value))}>
+            {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - 5 + i).map((año) => (
+              <option key={año} value={año}>{año}</option>
+            ))}
+          </select>
         </div>
 
         <nav className="layout-nav">

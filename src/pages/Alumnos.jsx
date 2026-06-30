@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCicloLectivo } from '../context/CicloLectivoContext';
 import cliente from '../api/cliente';
 import './Alumnos.css';
 
 function Alumnos() {
   const { usuario } = useAuth();
+  const { cicloLectivo } = useCicloLectivo();
   const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [alumnos, setAlumnos] = useState([]);
@@ -13,7 +15,7 @@ function Alumnos() {
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nuevoAlumno, setNuevoAlumno] = useState({
-    dni: '', nombre: '', apellido: '', division: '', cicloLectivo: 2026
+    dni: '', nombre: '', apellido: '', division: '', cicloLectivo
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -34,13 +36,17 @@ function Alumnos() {
     cargarAlumnos();
   }, []);
 
+  useEffect(() => {
+    setNuevoAlumno((anterior) => ({ ...anterior, cicloLectivo }));
+  }, [cicloLectivo]);
+
   async function manejarAlta(evento) {
     evento.preventDefault();
     setGuardando(true);
     setError('');
     try {
       await cliente.post('/alumnos', nuevoAlumno);
-      setNuevoAlumno({ dni: '', nombre: '', apellido: '', division: '', cicloLectivo: 2026 });
+      setNuevoAlumno({ dni: '', nombre: '', apellido: '', division: '', cicloLectivo });
       setMostrarFormulario(false);
       cargarAlumnos();
     } catch (err) {
@@ -50,10 +56,14 @@ function Alumnos() {
     }
   }
 
+  const alumnosDelCiclo = alumnos.filter((alumno) =>
+    alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo)
+  );
+
   return (
     <div className="alumnos-pagina">
       <div className="alumnos-encabezado">
-        <h1>Alumnos</h1>
+        <h1>Alumnos — Ciclo {cicloLectivo}</h1>
         {esSecretaria && (
           <button onClick={() => setMostrarFormulario(!mostrarFormulario)}>
             {mostrarFormulario ? 'Cancelar' : '+ Nuevo alumno'}
@@ -123,8 +133,8 @@ function Alumnos() {
 
       {cargando ? (
         <p>Cargando alumnos...</p>
-      ) : alumnos.length === 0 ? (
-        <p className="alumnos-vacio">No hay alumnos para mostrar.</p>
+      ) : alumnosDelCiclo.length === 0 ? (
+        <p className="alumnos-vacio">No hay alumnos matriculados en el ciclo {cicloLectivo}.</p>
       ) : (
         <table className="alumnos-tabla">
           <thead>
@@ -136,14 +146,14 @@ function Alumnos() {
             </tr>
           </thead>
           <tbody>
-            {alumnos.map((alumno) => {
-              const matriculaActual = alumno.matriculas[alumno.matriculas.length - 1];
+            {alumnosDelCiclo.map((alumno) => {
+              const matriculaDelCiclo = alumno.matriculas.find((m) => m.cicloLectivo === cicloLectivo);
               return (
                 <tr key={alumno.id}>
                   <td>{alumno.dni}</td>
                   <td>{alumno.apellido}, {alumno.nombre}</td>
-                  <td>{matriculaActual?.division || '-'}</td>
-                  <td>{matriculaActual?.cicloLectivo || '-'}</td>
+                  <td>{matriculaDelCiclo?.division || '-'}</td>
+                  <td>{matriculaDelCiclo?.cicloLectivo || '-'}</td>
                 </tr>
               );
             })}

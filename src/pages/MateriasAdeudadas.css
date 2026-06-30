@@ -1,0 +1,66 @@
+.materiasadeudadas-estado {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.materiasadeudadas-estado-cca {
+  background-color: #E3F2FD;
+  color: #1565C0;
+}
+
+.materiasadeudadas-estado-csa {
+  background-color: #FFF3E0;
+  color: #E65100;
+}
+
+.materiasadeudadas-estado-aprobada {
+  background-color: #E8F5E9;
+  color: #2E7D32;
+}
+
+.materiasadeudadas-alerta-edt {
+  background-color: #FFEBEE;
+  color: #C62828;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.materiasadeudadas-acciones {
+  display: flex;
+  gap: 6px;
+}
+
+.materiasadeudadas-acciones button {
+  padding: 5px 10px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 6px;
+  background-color: var(--color-superficie);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.materiasadeudadas-acciones button:hover {
+  background-color: var(--color-fondo);
+}
+
+.materiasadeudadas-aprobar {
+  background-color: var(--color-acento) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.materiasadeudadas-estado-trasladada {
+  background-color: #ECEFF1;
+  color: #546E7A;
+}
+
+.materiasadeudadas-pasar-ciclo {
+  background-color: #5C6BC0 !important;
+  color: white !important;
+  border: none !important;
+}

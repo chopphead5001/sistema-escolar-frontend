@@ -7,6 +7,8 @@ import Alumnos from './pages/Alumnos';
 import Personal from './pages/Personal';
 import Inasistencias from './pages/Inasistencias';
 import Boletines from './pages/Boletines';
+import MateriasAdeudadas from './pages/MateriasAdeudadas';
+import { CicloLectivoProvider } from './context/CicloLectivoContext';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -46,7 +48,7 @@ function RutasDeLaApp() {
         <Route path="inasistencias" element={<Inasistencias />} />
         <Route path="partes-diarios" element={<ProximamenteDisponible nombre="Partes diarios" />} />
         <Route path="licencias" element={<ProximamenteDisponible nombre="Licencias" />} />
-        <Route path="materias-adeudadas" element={<ProximamenteDisponible nombre="Materias adeudadas" />} />
+        <Route path="materias-adeudadas" element={<MateriasAdeudadas />} />
         <Route path="informes" element={<ProximamenteDisponible nombre="Informes" />} />
       </Route>
     </Routes>
@@ -57,7 +59,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <RutasDeLaApp />
+        <CicloLectivoProvider>
+          <RutasDeLaApp />
+        </CicloLectivoProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCicloLectivo } from '../context/CicloLectivoContext';
 import cliente from '../api/cliente';
 import './Alumnos.css';
 import './Boletines.css';
 
 function Boletines() {
   const { usuario } = useAuth();
+  const { cicloLectivo } = useCicloLectivo();
   const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [alumnos, setAlumnos] = useState([]);
@@ -57,7 +59,7 @@ function Boletines() {
         return;
       }
       try {
-        const respuesta = await cliente.get(`/boletines/plan-materias/${divisionSeleccionada}/2026`);
+        const respuesta = await cliente.get(`/boletines/plan-materias/${divisionSeleccionada}/${cicloLectivo}`);
         setPlanDeMaterias(respuesta.data);
       } catch (err) {
         setPlanDeMaterias([]);
@@ -65,7 +67,7 @@ function Boletines() {
     }
     cargarPlan();
     setMateriaSeleccionada('');
-  }, [divisionSeleccionada]);
+  }, [divisionSeleccionada, cicloLectivo]);
 
   useEffect(() => {
     async function cargarCalificaciones() {
@@ -75,7 +77,7 @@ function Boletines() {
       }
       try {
         const respuesta = await cliente.get('/boletines/calificaciones', {
-          params: { division: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo: 2026, cuatrimestre }
+          params: { division: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
         });
         setCalificaciones(respuesta.data);
       } catch (err) {
@@ -83,16 +85,18 @@ function Boletines() {
       }
     }
     cargarCalificaciones();
-  }, [divisionSeleccionada, materiaSeleccionada, cuatrimestre]);
+  }, [divisionSeleccionada, materiaSeleccionada, cuatrimestre, cicloLectivo]);
 
   const divisiones = [...new Set(
-    alumnos.map(a => a.matriculas[a.matriculas.length - 1]?.division).filter(Boolean)
+    alumnos
+      .flatMap(a => a.matriculas)
+      .filter(m => m.cicloLectivo === cicloLectivo)
+      .map(m => m.division)
   )].sort();
 
-  const alumnosDelCurso = alumnos.filter(a => {
-    const division = a.matriculas[a.matriculas.length - 1]?.division;
-    return division === divisionSeleccionada;
-  });
+  const alumnosDelCurso = alumnos.filter(a =>
+    a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.division === divisionSeleccionada)
+  );
 
   const materiasDisponiblesParaAgregar = materias.filter(
     m => !planDeMaterias.some(p => p.materiaId === m.id)
@@ -147,7 +151,7 @@ function Boletines() {
           alumnoId: parseInt(alumnoId),
           materiaId: parseInt(materiaSeleccionada),
           division: divisionSeleccionada,
-          cicloLectivo: 2026,
+          cicloLectivo,
           cuatrimestre,
           condicion: nota.condicion || 'CURSA',
           valoracionPreliminar: nota.valoracionPreliminar || null,
@@ -165,7 +169,7 @@ function Boletines() {
       setNotas({});
 
       const respuesta = await cliente.get('/boletines/calificaciones', {
-        params: { division: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo: 2026, cuatrimestre }
+        params: { division: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
       });
       setCalificaciones(respuesta.data);
     } catch (err) {
@@ -192,11 +196,11 @@ function Boletines() {
     try {
       await cliente.post('/boletines/plan-materias', {
         division: divisionSeleccionada,
-        cicloLectivo: 2026,
+        cicloLectivo,
         materiaId: parseInt(materiaParaAgregarAlPlan)
       });
       setMateriaParaAgregarAlPlan('');
-      const respuesta = await cliente.get(`/boletines/plan-materias/${divisionSeleccionada}/2026`);
+      const respuesta = await cliente.get(`/boletines/plan-materias/${divisionSeleccionada}/${cicloLectivo}`);
       setPlanDeMaterias(respuesta.data);
     } catch (err) {
       setError('No se pudo agregar la materia al plan');
@@ -206,7 +210,7 @@ function Boletines() {
   async function quitarMateriaDelPlan(idDelPlan) {
     try {
       await cliente.delete(`/boletines/plan-materias/${idDelPlan}`);
-      const respuesta = await cliente.get(`/boletines/plan-materias/${divisionSeleccionada}/2026`);
+      const respuesta = await cliente.get(`/boletines/plan-materias/${divisionSeleccionada}/${cicloLectivo}`);
       setPlanDeMaterias(respuesta.data);
     } catch (err) {
       setError('No se pudo quitar la materia del plan');
@@ -216,7 +220,7 @@ function Boletines() {
   return (
     <div className="alumnos-pagina">
       <div className="alumnos-encabezado">
-        <h1>Boletines</h1>
+        <h1>Boletines — Ciclo {cicloLectivo}</h1>
         {esSecretaria && (
           <button onClick={() => setMostrarFormularioMateria(!mostrarFormularioMateria)}>
             {mostrarFormularioMateria ? 'Cancelar' : '+ Nueva materia'}
@@ -320,7 +324,7 @@ function Boletines() {
       ) : !divisionSeleccionada || !materiaSeleccionada ? (
         <p className="alumnos-vacio">Elegí una división y una materia para cargar las notas.</p>
       ) : alumnosDelCurso.length === 0 ? (
-        <p className="alumnos-vacio">No hay alumnos cargados en esa división.</p>
+        <p className="alumnos-vacio">No hay alumnos cargados en esa división para este ciclo.</p>
       ) : (
         <>
           <table className="alumnos-tabla boletines-tabla">

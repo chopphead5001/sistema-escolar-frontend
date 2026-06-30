@@ -13,4 +13,21 @@ cliente.interceptors.request.use((config) => {
   return config;
 });
 
+// Si el backend responde 401 (sesión inválida o expirada), cerramos sesión
+// automáticamente y mandamos al login, en vez de dejar que la pantalla
+// falle en silencio
+cliente.interceptors.response.use(
+  (respuesta) => respuesta,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default cliente;
