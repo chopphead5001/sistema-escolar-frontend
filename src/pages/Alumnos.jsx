@@ -22,6 +22,10 @@ function Alumnos() {
 
   const [promoviendoId, setPromoviendoId] = useState(null);
   const [divisionDestino, setDivisionDestino] = useState('');
+  const [divisionDestinoPorGrupo, setDivisionDestinoPorGrupo] = useState({});
+
+  const [dandoDeBajaId, setDandoDeBajaId] = useState(null);
+  const [motivoBaja, setMotivoBaja] = useState('');
 
   async function cargarAlumnos() {
     setCargando(true);
@@ -60,19 +64,43 @@ function Alumnos() {
     }
   }
 
-  const alumnosDelCiclo = alumnos.filter((alumno) =>
-    alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo)
-  );
+  function matriculaActivaDelCiclo(alumno) {
+    return alumno.matriculas.find(
+      (m) => m.cicloLectivo === cicloLectivo && m.activa !== false
+    );
+  }
+
+  const alumnosDelCiclo = alumnos.filter((alumno) => !!matriculaActivaDelCiclo(alumno));
+
+  const gruposDelCiclo = {};
+  alumnosDelCiclo.forEach((alumno) => {
+    const matricula = matriculaActivaDelCiclo(alumno);
+    const division = matricula?.division || 'Sin división';
+    if (!gruposDelCiclo[division]) gruposDelCiclo[division] = [];
+    gruposDelCiclo[division].push(alumno);
+  });
+  const divisionesDelCicloOrdenadas = Object.keys(gruposDelCiclo).sort();
 
   const alumnosParaPromover = alumnos.filter((alumno) => {
     const yaTieneEsteCiclo = alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo);
-    const teniaCicloAnterior = alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo - 1);
-    return !yaTieneEsteCiclo && teniaCicloAnterior;
+    const teniaCicloAnteriorActivo = alumno.matriculas.some(
+      (m) => m.cicloLectivo === cicloLectivo - 1 && m.activa !== false
+    );
+    return !yaTieneEsteCiclo && teniaCicloAnteriorActivo;
   });
 
   const todasLasDivisionesConocidas = [...new Set(
     alumnos.flatMap((a) => a.matriculas.map((m) => m.division))
   )].sort();
+
+  const gruposParaPromover = {};
+  alumnosParaPromover.forEach((alumno) => {
+    const matriculaAnterior = alumno.matriculas.find((m) => m.cicloLectivo === cicloLectivo - 1);
+    const divisionOrigen = matriculaAnterior?.division || 'Sin división';
+    if (!gruposParaPromover[divisionOrigen]) gruposParaPromover[divisionOrigen] = [];
+    gruposParaPromover[divisionOrigen].push(alumno);
+  });
+  const divisionesOrigenOrdenadas = Object.keys(gruposParaPromover).sort();
 
   async function promoverAlumno(alumnoId) {
     if (!divisionDestino) {
@@ -90,6 +118,45 @@ function Alumnos() {
       cargarAlumnos();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo promover al alumno');
+    }
+  }
+
+  async function promoverGrupoCompleto(divisionOrigen) {
+    const destino = divisionDestinoPorGrupo[divisionOrigen];
+    if (!destino) {
+      setError('Elegí la división de destino para este grupo antes de confirmar');
+      return;
+    }
+    const alumnosDelGrupo = gruposParaPromover[divisionOrigen];
+    setError('');
+    try {
+      for (const alumno of alumnosDelGrupo) {
+        await cliente.post(`/alumnos/${alumno.id}/promover`, {
+          cicloLectivo,
+          division: destino
+        });
+      }
+      setMensajeExito(`Se promovieron ${alumnosDelGrupo.length} alumnos de ${divisionOrigen} a ${destino}`);
+      cargarAlumnos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo promover al grupo completo');
+    }
+  }
+
+  async function confirmarBaja(alumnoId, motivo) {
+    const motivoFinal = motivo || motivoBaja;
+    if (!motivoFinal || !motivoFinal.trim()) {
+      setError('Indicá un motivo de baja (egreso, cambio de escuela, etc.)');
+      return;
+    }
+    try {
+      await cliente.put(`/alumnos/${alumnoId}/baja`, { motivo: motivoFinal });
+      setMensajeExito('Alumno dado de baja correctamente');
+      setDandoDeBajaId(null);
+      setMotivoBaja('');
+      cargarAlumnos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo dar de baja al alumno');
     }
   }
 
@@ -170,32 +237,61 @@ function Alumnos() {
           <p className="alumnos-panel-promover-titulo">
             {alumnosParaPromover.length} alumno(s) del ciclo {cicloLectivo - 1} todavía no fueron promovidos a {cicloLectivo}:
           </p>
-          <ul className="alumnos-lista-promover">
-            {alumnosParaPromover.map((alumno) => {
-              const matriculaAnterior = alumno.matriculas.find((m) => m.cicloLectivo === cicloLectivo - 1);
-              return (
-                <li key={alumno.id}>
-                  <span>
-                    {alumno.apellido}, {alumno.nombre} — venía de {matriculaAnterior?.division}
-                  </span>
-                  {promoviendoId === alumno.id ? (
-                    <span className="alumnos-promover-acciones">
-                      <select value={divisionDestino} onChange={(e) => setDivisionDestino(e.target.value)}>
-                        <option value="">Nueva división...</option>
-                        {todasLasDivisionesConocidas.map((division) => (
-                          <option key={division} value={division}>{division}</option>
-                        ))}
-                      </select>
-                      <button onClick={() => promoverAlumno(alumno.id)}>Confirmar</button>
-                      <button onClick={() => { setPromoviendoId(null); setDivisionDestino(''); }}>Cancelar</button>
-                    </span>
-                  ) : (
-                    <button onClick={() => setPromoviendoId(alumno.id)}>Promover</button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+
+          {divisionesOrigenOrdenadas.map((divisionOrigen) => (
+            <div key={divisionOrigen} className="alumnos-grupo-promover">
+              <div className="alumnos-grupo-promover-encabezado">
+                <h3>{divisionOrigen} ({gruposParaPromover[divisionOrigen].length} alumnos)</h3>
+                <div className="alumnos-promover-acciones">
+                  <select
+                    value={divisionDestinoPorGrupo[divisionOrigen] || ''}
+                    onChange={(e) => setDivisionDestinoPorGrupo({
+                      ...divisionDestinoPorGrupo,
+                      [divisionOrigen]: e.target.value
+                    })}
+                  >
+                    <option value="">Nueva división para todos...</option>
+                    {todasLasDivisionesConocidas.map((division) => (
+                      <option key={division} value={division}>{division}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => promoverGrupoCompleto(divisionOrigen)}>
+                    Promover grupo completo
+                  </button>
+                </div>
+              </div>
+
+              <ul className="alumnos-lista-promover">
+                {gruposParaPromover[divisionOrigen].map((alumno) => (
+                  <li key={alumno.id}>
+                    <span>{alumno.apellido}, {alumno.nombre}</span>
+                    {promoviendoId === alumno.id ? (
+                      <span className="alumnos-promover-acciones">
+                        <select value={divisionDestino} onChange={(e) => setDivisionDestino(e.target.value)}>
+                          <option value="">Nueva división...</option>
+                          {todasLasDivisionesConocidas.map((division) => (
+                            <option key={division} value={division}>{division}</option>
+                          ))}
+                        </select>
+                        <button onClick={() => promoverAlumno(alumno.id)}>Confirmar</button>
+                        <button onClick={() => { setPromoviendoId(null); setDivisionDestino(''); }}>Cancelar</button>
+                      </span>
+                    ) : (
+                      <span className="alumnos-promover-acciones">
+                        <button onClick={() => setPromoviendoId(alumno.id)}>Promover</button>
+                        <button onClick={() => {
+                          const motivo = window.prompt('Motivo de baja (egreso, cambio de escuela, etc.):');
+                          if (motivo) confirmarBaja(alumno.id, motivo);
+                        }}>
+                          Dar de baja
+                        </button>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 
@@ -204,29 +300,50 @@ function Alumnos() {
       ) : alumnosDelCiclo.length === 0 ? (
         <p className="alumnos-vacio">No hay alumnos matriculados en el ciclo {cicloLectivo}.</p>
       ) : (
-        <table className="alumnos-tabla">
-          <thead>
-            <tr>
-              <th>DNI</th>
-              <th>Apellido y nombre</th>
-              <th>División</th>
-              <th>Ciclo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {alumnosDelCiclo.map((alumno) => {
-              const matriculaDelCiclo = alumno.matriculas.find((m) => m.cicloLectivo === cicloLectivo);
-              return (
-                <tr key={alumno.id}>
-                  <td>{alumno.dni}</td>
-                  <td>{alumno.apellido}, {alumno.nombre}</td>
-                  <td>{matriculaDelCiclo?.division || '-'}</td>
-                  <td>{matriculaDelCiclo?.cicloLectivo || '-'}</td>
+        divisionesDelCicloOrdenadas.map((division) => (
+          <div key={division} className="alumnos-grupo-listado">
+            <h3 className="alumnos-grupo-listado-titulo">
+              {division} ({gruposDelCiclo[division].length} alumnos)
+            </h3>
+            <table className="alumnos-tabla">
+              <thead>
+                <tr>
+                  <th>DNI</th>
+                  <th>Apellido y nombre</th>
+                  <th>Ciclo</th>
+                  {esSecretaria && <th>Acciones</th>}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {gruposDelCiclo[division].map((alumno) => (
+                  <tr key={alumno.id}>
+                    <td>{alumno.dni}</td>
+                    <td>{alumno.apellido}, {alumno.nombre}</td>
+                    <td>{cicloLectivo}</td>
+                    {esSecretaria && (
+                      <td>
+                        {dandoDeBajaId === alumno.id ? (
+                          <span className="alumnos-promover-acciones">
+                            <input
+                              type="text"
+                              placeholder="Motivo (egreso, cambio de escuela...)"
+                              value={motivoBaja}
+                              onChange={(e) => setMotivoBaja(e.target.value)}
+                            />
+                            <button onClick={() => confirmarBaja(alumno.id)}>Confirmar baja</button>
+                            <button onClick={() => { setDandoDeBajaId(null); setMotivoBaja(''); }}>Cancelar</button>
+                          </span>
+                        ) : (
+                          <button onClick={() => setDandoDeBajaId(alumno.id)}>Dar de baja</button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))
       )}
     </div>
   );

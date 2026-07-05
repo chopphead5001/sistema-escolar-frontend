@@ -177,3 +177,47 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+.alumnos-grupo-promover {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 0.5px solid #E8D796;
+}
+
+.alumnos-grupo-promover:first-of-type {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.alumnos-grupo-promover-encabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.alumnos-grupo-promover-encabezado h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-texto-principal);
+}
+
+.alumnos-grupo-promover-encabezado .alumnos-promover-acciones select {
+  padding: 6px 8px;
+  border: 0.5px solid var(--color-borde);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.alumnos-grupo-listado {
+  margin-bottom: 28px;
+}
+
+.alumnos-grupo-listado-titulo {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--color-texto-principal);
+}
