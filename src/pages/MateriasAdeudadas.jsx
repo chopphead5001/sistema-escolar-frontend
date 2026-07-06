@@ -19,6 +19,7 @@ function MateriasAdeudadas() {
   }
 
   const [alumnos, setAlumnos] = useState([]);
+  const [divisiones, setDivisiones] = useState([]);
   const [materias, setMaterias] = useState([]);
   const [deudas, setDeudas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -37,14 +38,16 @@ function MateriasAdeudadas() {
     setCargando(true);
     setError('');
     try {
-      const [respuestaAlumnos, respuestaMaterias, respuestaDeudas] = await Promise.all([
+      const [respuestaAlumnos, respuestaMaterias, respuestaDeudas, respuestaDivisiones] = await Promise.all([
         cliente.get('/alumnos'),
         cliente.get('/boletines/materias'),
-        cliente.get('/materias-adeudadas', { params: { cicloActual: cicloLectivo } })
+        cliente.get('/materias-adeudadas', { params: { cicloActual: cicloLectivo } }),
+        cliente.get('/divisiones')
       ]);
       setAlumnos(respuestaAlumnos.data);
       setMaterias(respuestaMaterias.data);
       setDeudas(respuestaDeudas.data);
+      setDivisiones(respuestaDivisiones.data);
     } catch (err) {
       setError('No se pudo cargar la información');
     } finally {
@@ -137,12 +140,10 @@ function MateriasAdeudadas() {
     }
   });
 
-  const divisiones = [...new Set(
-    alumnos.map(a => a.matriculas[a.matriculas.length - 1]?.division).filter(Boolean)
-  )].sort();
+  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const alumnosFiltrados = divisionFiltro
-    ? alumnos.filter(a => a.matriculas[a.matriculas.length - 1]?.division === divisionFiltro)
+    ? alumnos.filter(a => a.matriculas[a.matriculas.length - 1]?.divisionId === parseInt(divisionFiltro))
     : [];
 
   const etiquetaModalidad = { INTENSIFICA: 'Intensifica', RECURSA: 'Recursa' };
@@ -170,8 +171,8 @@ function MateriasAdeudadas() {
                 onChange={(e) => setDivisionFiltro(e.target.value)}
               >
                 <option value="">Seleccioná una división</option>
-                {divisiones.map((division) => (
-                  <option key={division} value={division}>{division}</option>
+                {divisionesOrdenadas.map((division) => (
+                  <option key={division.id} value={division.id}>{division.nombre}</option>
                 ))}
               </select>
             </div>

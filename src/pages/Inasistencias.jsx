@@ -8,6 +8,7 @@ function Inasistencias() {
   const { cicloLectivo } = useCicloLectivo();
 
   const [alumnos, setAlumnos] = useState([]);
+  const [divisiones, setDivisiones] = useState([]);
   const [cargandoAlumnos, setCargandoAlumnos] = useState(true);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -25,8 +26,12 @@ function Inasistencias() {
     setCargandoAlumnos(true);
     setError('');
     try {
-      const respuesta = await cliente.get('/alumnos');
-      setAlumnos(respuesta.data);
+      const [respuestaAlumnos, respuestaDivisiones] = await Promise.all([
+        cliente.get('/alumnos'),
+        cliente.get('/divisiones')
+      ]);
+      setAlumnos(respuestaAlumnos.data);
+      setDivisiones(respuestaDivisiones.data);
     } catch (err) {
       setError('No se pudo cargar el listado de alumnos');
     } finally {
@@ -47,7 +52,7 @@ function Inasistencias() {
       setVerificandoDia(true);
       try {
         const respuesta = await cliente.get('/inasistencias/verificar-dia', {
-          params: { division: divisionSeleccionada, fecha }
+          params: { divisionId: divisionSeleccionada, fecha }
         });
         setDiaYaConfirmado(respuesta.data.confirmado);
       } catch (err) {
@@ -59,15 +64,10 @@ function Inasistencias() {
     verificarDia();
   }, [divisionSeleccionada, fecha]);
 
-  const divisiones = [...new Set(
-    alumnos
-      .flatMap(a => a.matriculas)
-      .filter(m => m.cicloLectivo === cicloLectivo)
-      .map(m => m.division)
-  )].sort();
+  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const alumnosDelCurso = alumnos.filter(a =>
-    a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.division === divisionSeleccionada)
+    a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.divisionId === parseInt(divisionSeleccionada))
   );
 
   function actualizarMarca(alumnoId, campo, valor) {
@@ -98,7 +98,7 @@ function Inasistencias() {
 
     try {
       await cliente.post('/inasistencias/confirmar-dia', {
-        division: divisionSeleccionada,
+        divisionId: parseInt(divisionSeleccionada),
         cicloLectivo,
         fecha,
         huboClase: true
@@ -107,7 +107,7 @@ function Inasistencias() {
       for (const [alumnoId, marca] of alumnosConMarcas) {
         await cliente.post('/inasistencias', {
           alumnoId: parseInt(alumnoId),
-          division: divisionSeleccionada,
+          divisionId: parseInt(divisionSeleccionada),
           cicloLectivo,
           fecha,
           ...marca
@@ -146,8 +146,8 @@ function Inasistencias() {
               onChange={(e) => { setDivisionSeleccionada(e.target.value); setMarcas({}); }}
             >
               <option value="">Seleccioná una división</option>
-              {divisiones.map((division) => (
-                <option key={division} value={division}>{division}</option>
+              {divisionesOrdenadas.map((division) => (
+                <option key={division.id} value={division.id}>{division.nombre}</option>
               ))}
             </select>
           </div>

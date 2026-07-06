@@ -10,13 +10,14 @@ function Alumnos() {
   const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [alumnos, setAlumnos] = useState([]);
+  const [divisiones, setDivisiones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nuevoAlumno, setNuevoAlumno] = useState({
-    dni: '', nombre: '', apellido: '', division: '', cicloLectivo
+    dni: '', nombre: '', apellido: '', divisionId: '', cicloLectivo
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -31,8 +32,12 @@ function Alumnos() {
     setCargando(true);
     setError('');
     try {
-      const respuesta = await cliente.get('/alumnos');
-      setAlumnos(respuesta.data);
+      const [respuestaAlumnos, respuestaDivisiones] = await Promise.all([
+        cliente.get('/alumnos'),
+        cliente.get('/divisiones')
+      ]);
+      setAlumnos(respuestaAlumnos.data);
+      setDivisiones(respuestaDivisiones.data);
     } catch (err) {
       setError('No se pudo cargar el listado de alumnos');
     } finally {
@@ -54,7 +59,7 @@ function Alumnos() {
     setError('');
     try {
       await cliente.post('/alumnos', nuevoAlumno);
-      setNuevoAlumno({ dni: '', nombre: '', apellido: '', division: '', cicloLectivo });
+      setNuevoAlumno({ dni: '', nombre: '', apellido: '', divisionId: '', cicloLectivo });
       setMostrarFormulario(false);
       cargarAlumnos();
     } catch (err) {
@@ -75,7 +80,7 @@ function Alumnos() {
   const gruposDelCiclo = {};
   alumnosDelCiclo.forEach((alumno) => {
     const matricula = matriculaActivaDelCiclo(alumno);
-    const division = matricula?.division || 'Sin división';
+    const division = matricula?.division?.nombre || 'Sin división';
     if (!gruposDelCiclo[division]) gruposDelCiclo[division] = [];
     gruposDelCiclo[division].push(alumno);
   });
@@ -89,14 +94,12 @@ function Alumnos() {
     return !yaTieneEsteCiclo && teniaCicloAnteriorActivo;
   });
 
-  const todasLasDivisionesConocidas = [...new Set(
-    alumnos.flatMap((a) => a.matriculas.map((m) => m.division))
-  )].sort();
+  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const gruposParaPromover = {};
   alumnosParaPromover.forEach((alumno) => {
     const matriculaAnterior = alumno.matriculas.find((m) => m.cicloLectivo === cicloLectivo - 1);
-    const divisionOrigen = matriculaAnterior?.division || 'Sin división';
+    const divisionOrigen = matriculaAnterior?.division?.nombre || 'Sin división';
     if (!gruposParaPromover[divisionOrigen]) gruposParaPromover[divisionOrigen] = [];
     gruposParaPromover[divisionOrigen].push(alumno);
   });
@@ -110,7 +113,7 @@ function Alumnos() {
     try {
       await cliente.post(`/alumnos/${alumnoId}/promover`, {
         cicloLectivo,
-        division: divisionDestino
+        divisionId: divisionDestino
       });
       setMensajeExito('Alumno promovido correctamente');
       setPromoviendoId(null);
@@ -128,15 +131,16 @@ function Alumnos() {
       return;
     }
     const alumnosDelGrupo = gruposParaPromover[divisionOrigen];
+    const nombreDestino = divisiones.find((d) => d.id === parseInt(destino))?.nombre || destino;
     setError('');
     try {
       for (const alumno of alumnosDelGrupo) {
         await cliente.post(`/alumnos/${alumno.id}/promover`, {
           cicloLectivo,
-          division: destino
+          divisionId: destino
         });
       }
-      setMensajeExito(`Se promovieron ${alumnosDelGrupo.length} alumnos de ${divisionOrigen} a ${destino}`);
+      setMensajeExito(`Se promovieron ${alumnosDelGrupo.length} alumnos de ${divisionOrigen} a ${nombreDestino}`);
       cargarAlumnos();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo promover al grupo completo');
@@ -208,13 +212,16 @@ function Alumnos() {
           <div className="alumnos-formulario-fila">
             <div>
               <label>División</label>
-              <input
-                type="text"
-                placeholder="Ej: 4to EDFI"
-                value={nuevoAlumno.division}
-                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, division: e.target.value })}
+              <select
+                value={nuevoAlumno.divisionId}
+                onChange={(e) => setNuevoAlumno({ ...nuevoAlumno, divisionId: e.target.value })}
                 required
-              />
+              >
+                <option value="">Seleccioná una división</option>
+                {divisionesOrdenadas.map((division) => (
+                  <option key={division.id} value={division.id}>{division.nombre}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label>Ciclo lectivo</label>
@@ -251,8 +258,8 @@ function Alumnos() {
                     })}
                   >
                     <option value="">Nueva división para todos...</option>
-                    {todasLasDivisionesConocidas.map((division) => (
-                      <option key={division} value={division}>{division}</option>
+                    {divisionesOrdenadas.map((division) => (
+                      <option key={division.id} value={division.id}>{division.nombre}</option>
                     ))}
                   </select>
                   <button onClick={() => promoverGrupoCompleto(divisionOrigen)}>
@@ -269,8 +276,8 @@ function Alumnos() {
                       <span className="alumnos-promover-acciones">
                         <select value={divisionDestino} onChange={(e) => setDivisionDestino(e.target.value)}>
                           <option value="">Nueva división...</option>
-                          {todasLasDivisionesConocidas.map((division) => (
-                            <option key={division} value={division}>{division}</option>
+                          {divisionesOrdenadas.map((division) => (
+                            <option key={division.id} value={division.id}>{division.nombre}</option>
                           ))}
                         </select>
                         <button onClick={() => promoverAlumno(alumno.id)}>Confirmar</button>

@@ -11,6 +11,7 @@ function Boletines() {
   const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [alumnos, setAlumnos] = useState([]);
+  const [divisiones, setDivisiones] = useState([]);
   const [materias, setMaterias] = useState([]);
   const [planDeMaterias, setPlanDeMaterias] = useState([]);
   const [calificaciones, setCalificaciones] = useState([]);
@@ -35,12 +36,14 @@ function Boletines() {
     setCargando(true);
     setError('');
     try {
-      const [respuestaAlumnos, respuestaMaterias] = await Promise.all([
+      const [respuestaAlumnos, respuestaMaterias, respuestaDivisiones] = await Promise.all([
         cliente.get('/alumnos'),
-        cliente.get('/boletines/materias')
+        cliente.get('/boletines/materias'),
+        cliente.get('/divisiones')
       ]);
       setAlumnos(respuestaAlumnos.data);
       setMaterias(respuestaMaterias.data);
+      setDivisiones(respuestaDivisiones.data);
     } catch (err) {
       setError('No se pudo cargar la información');
     } finally {
@@ -77,7 +80,7 @@ function Boletines() {
       }
       try {
         const respuesta = await cliente.get('/boletines/calificaciones', {
-          params: { division: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
+          params: { divisionId: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
         });
         setCalificaciones(respuesta.data);
       } catch (err) {
@@ -87,15 +90,11 @@ function Boletines() {
     cargarCalificaciones();
   }, [divisionSeleccionada, materiaSeleccionada, cuatrimestre, cicloLectivo]);
 
-  const divisiones = [...new Set(
-    alumnos
-      .flatMap(a => a.matriculas)
-      .filter(m => m.cicloLectivo === cicloLectivo)
-      .map(m => m.division)
-  )].sort();
+  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const nombreDivisionSeleccionada = divisiones.find((d) => d.id === parseInt(divisionSeleccionada))?.nombre || '';
 
   const alumnosDelCurso = alumnos.filter(a =>
-    a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.division === divisionSeleccionada)
+    a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.divisionId === parseInt(divisionSeleccionada))
   );
 
   const materiasDisponiblesParaAgregar = materias.filter(
@@ -150,7 +149,7 @@ function Boletines() {
         const datos = {
           alumnoId: parseInt(alumnoId),
           materiaId: parseInt(materiaSeleccionada),
-          division: divisionSeleccionada,
+          divisionId: parseInt(divisionSeleccionada),
           cicloLectivo,
           cuatrimestre,
           condicion: nota.condicion || 'CURSA',
@@ -169,7 +168,7 @@ function Boletines() {
       setNotas({});
 
       const respuesta = await cliente.get('/boletines/calificaciones', {
-        params: { division: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
+        params: { divisionId: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
       });
       setCalificaciones(respuesta.data);
     } catch (err) {
@@ -195,7 +194,7 @@ function Boletines() {
     if (!materiaParaAgregarAlPlan) return;
     try {
       await cliente.post('/boletines/plan-materias', {
-        division: divisionSeleccionada,
+        divisionId: parseInt(divisionSeleccionada),
         cicloLectivo,
         materiaId: parseInt(materiaParaAgregarAlPlan)
       });
@@ -255,8 +254,8 @@ function Boletines() {
             <label>División</label>
             <select value={divisionSeleccionada} onChange={(e) => { setDivisionSeleccionada(e.target.value); setNotas({}); }}>
               <option value="">Seleccioná una división</option>
-              {divisiones.map((division) => (
-                <option key={division} value={division}>{division}</option>
+              {divisionesOrdenadas.map((division) => (
+                <option key={division.id} value={division.id}>{division.nombre}</option>
               ))}
             </select>
           </div>
@@ -290,13 +289,13 @@ function Boletines() {
             className="boletines-link-plan"
             onClick={() => setMostrarPlan(!mostrarPlan)}
           >
-            {mostrarPlan ? 'Ocultar' : 'Configurar'} plan de materias de {divisionSeleccionada}
+            {mostrarPlan ? 'Ocultar' : 'Configurar'} plan de materias de {nombreDivisionSeleccionada}
           </button>
         )}
 
         {mostrarPlan && divisionSeleccionada && (
           <div className="boletines-panel-plan">
-            <p className="boletines-panel-plan-titulo">Materias que cursa {divisionSeleccionada}:</p>
+            <p className="boletines-panel-plan-titulo">Materias que cursa {nombreDivisionSeleccionada}:</p>
             <ul className="boletines-lista-plan">
               {planDeMaterias.length === 0 && <li className="boletines-vacio-plan">Todavía no hay materias asignadas a esta división.</li>}
               {planDeMaterias.map((item) => (

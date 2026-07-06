@@ -12,7 +12,7 @@ function Inicio() {
           <p>Tus divisiones asignadas:</p>
           <ul>
             {usuario.cursosAsignados.map((curso) => (
-              <li key={curso.id}>{curso.division} (Ciclo {curso.cicloLectivo})</li>
+              <li key={curso.id}>{curso.division.nombre} (Ciclo {curso.cicloLectivo})</li>
             ))}
           </ul>
         </div>

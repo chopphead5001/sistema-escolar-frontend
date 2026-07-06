@@ -155,7 +155,7 @@ function Personal() {
                     {cargosDelCiclo.length === 0
                       ? '-'
                       : cargosDelCiclo
-                          .map((c) => c.division ? `${c.nombreCargo} (${c.division})` : c.nombreCargo)
+                          .map((c) => c.division ? `${c.nombreCargo} (${c.division.nombre})` : c.nombreCargo)
                           .join(', ')}
                   </td>
                 </tr>

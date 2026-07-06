@@ -19,7 +19,7 @@ function Cargos() {
 
   const [personas, setPersonas] = useState([]);
   const [cargos, setCargos] = useState([]);
-  const [alumnos, setAlumnos] = useState([]);
+  const [divisiones, setDivisiones] = useState([]);
   const [nombresCargo, setNombresCargo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -28,7 +28,7 @@ function Cargos() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [cargoEnEdicion, setCargoEnEdicion] = useState(null);
   const [formulario, setFormulario] = useState({
-    personaId: '', nombreCargo: '', division: '', horasCatedra: ''
+    personaId: '', nombreCargo: '', divisionId: '', horasCatedra: ''
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -40,15 +40,15 @@ function Cargos() {
     setCargando(true);
     setError('');
     try {
-      const [respuestaPersonal, respuestaCargos, respuestaAlumnos, respuestaNombres] = await Promise.all([
+      const [respuestaPersonal, respuestaCargos, respuestaDivisiones, respuestaNombres] = await Promise.all([
         cliente.get('/personal'),
         cliente.get('/cargos', { params: { cicloLectivo } }),
-        cliente.get('/alumnos'),
+        cliente.get('/divisiones'),
         cliente.get('/cargos/nombres-cargo')
       ]);
       setPersonas(respuestaPersonal.data);
       setCargos(respuestaCargos.data);
-      setAlumnos(respuestaAlumnos.data);
+      setDivisiones(respuestaDivisiones.data);
       setNombresCargo(respuestaNombres.data);
     } catch (err) {
       setError('No se pudo cargar la información de cargos');
@@ -61,12 +61,7 @@ function Cargos() {
     cargarDatos();
   }, [cicloLectivo]);
 
-  const divisiones = [...new Set(
-    alumnos
-      .flatMap(a => a.matriculas)
-      .filter(m => m.cicloLectivo === cicloLectivo)
-      .map(m => m.division)
-  )].sort();
+  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const personasFiltradas = busquedaPersona
   ? personas.filter((p) =>
@@ -76,7 +71,7 @@ function Cargos() {
 
   function abrirFormularioNuevo() {
     setCargoEnEdicion(null);
-    setFormulario({ personaId: '', nombreCargo: '', division: '', horasCatedra: '' });
+    setFormulario({ personaId: '', nombreCargo: '', divisionId: '', horasCatedra: '' });
     setMostrarFormulario(true);
   }
 
@@ -85,7 +80,7 @@ function Cargos() {
     setFormulario({
       personaId: cargo.personaId,
       nombreCargo: cargo.nombreCargo,
-      division: cargo.division || '',
+      divisionId: cargo.divisionId || '',
       horasCatedra: cargo.horasCatedra || ''
     });
     setMostrarFormulario(true);
@@ -99,7 +94,7 @@ function Cargos() {
     try {
       const datos = {
         nombreCargo: formulario.nombreCargo,
-        division: formulario.division || null,
+        divisionId: formulario.divisionId ? parseInt(formulario.divisionId) : null,
         horasCatedra: formulario.horasCatedra ? parseInt(formulario.horasCatedra) : null
       };
 
@@ -226,12 +221,12 @@ function Cargos() {
             <div>
               <label>División (si aplica)</label>
               <select
-                value={formulario.division}
-                onChange={(e) => setFormulario({ ...formulario, division: e.target.value })}
+                value={formulario.divisionId}
+                onChange={(e) => setFormulario({ ...formulario, divisionId: e.target.value })}
               >
                 <option value="">Sin división (cargo administrativo)</option>
-                {divisiones.map((division) => (
-                  <option key={division} value={division}>{division}</option>
+                {divisionesOrdenadas.map((division) => (
+                  <option key={division.id} value={division.id}>{division.nombre}</option>
                 ))}
               </select>
             </div>
@@ -271,7 +266,7 @@ function Cargos() {
               <tr key={cargo.id}>
                 <td>{cargo.persona.apellido}, {cargo.persona.nombre}</td>
                 <td>{cargo.nombreCargo}</td>
-                <td>{cargo.division || '-'}</td>
+                <td>{cargo.division?.nombre || '-'}</td>
                 <td>{cargo.horasCatedra || '-'}</td>
                 <td>{cargo.vigente ? 'Vigente' : 'Finalizado'}</td>
                 <td className="materiasadeudadas-acciones">
