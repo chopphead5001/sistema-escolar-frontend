@@ -12,6 +12,7 @@ import { CicloLectivoProvider } from './context/CicloLectivoContext';
 import Cargos from './pages/Cargos';
 import Divisiones from './pages/Divisiones';
 import PartesDiarios from './pages/PartesDiarios';
+import Licencias from './pages/Licencias';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -52,7 +53,7 @@ function RutasDeLaApp() {
         <Route path="boletines" element={<Boletines />} />
         <Route path="inasistencias" element={<Inasistencias />} />
         <Route path="partes-diarios" element={<PartesDiarios />} />
-        <Route path="licencias" element={<ProximamenteDisponible nombre="Licencias" />} />
+        <Route path="licencias" element={<Licencias />} />
         <Route path="materias-adeudadas" element={<MateriasAdeudadas />} />
         <Route path="informes" element={<ProximamenteDisponible nombre="Informes" />} />
       </Route>
