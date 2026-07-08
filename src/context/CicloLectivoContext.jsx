@@ -3,9 +3,9 @@ import { createContext, useContext, useState } from 'react';
 const CicloLectivoContext = createContext(null);
 
 export function CicloLectivoProvider({ children }) {
-  const cicloGuardado = localStorage.getItem('cicloLectivo');
+  const cicloGuardado = parseInt(localStorage.getItem('cicloLectivo'));
   const [cicloLectivo, setCicloLectivoState] = useState(
-    cicloGuardado ? parseInt(cicloGuardado) : 2026
+    Number.isNaN(cicloGuardado) ? 2026 : cicloGuardado
   );
 
   function setCicloLectivo(nuevoCiclo) {

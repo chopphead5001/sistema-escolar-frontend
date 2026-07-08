@@ -94,7 +94,9 @@ function Alumnos() {
     return !yaTieneEsteCiclo && teniaCicloAnteriorActivo;
   });
 
-  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const divisionesOrdenadas = [...divisiones]
+    .filter((d) => d.activa)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const gruposParaPromover = {};
   alumnosParaPromover.forEach((alumno) => {
@@ -133,17 +135,27 @@ function Alumnos() {
     const alumnosDelGrupo = gruposParaPromover[divisionOrigen];
     const nombreDestino = divisiones.find((d) => d.id === parseInt(destino))?.nombre || destino;
     setError('');
+    let promovidos = 0;
     try {
       for (const alumno of alumnosDelGrupo) {
         await cliente.post(`/alumnos/${alumno.id}/promover`, {
           cicloLectivo,
           divisionId: destino
         });
+        promovidos++;
       }
       setMensajeExito(`Se promovieron ${alumnosDelGrupo.length} alumnos de ${divisionOrigen} a ${nombreDestino}`);
-      cargarAlumnos();
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudo promover al grupo completo');
+      if (promovidos > 0) {
+        setError(
+          `Se promovieron ${promovidos} de ${alumnosDelGrupo.length} alumnos de ${divisionOrigen} antes de que fallara uno. ` +
+          'Revisá el listado (los que ya se promovieron van a desaparecer de este panel) antes de reintentar con el resto.'
+        );
+      } else {
+        setError(err.response?.data?.error || 'No se pudo promover al grupo completo');
+      }
+    } finally {
+      cargarAlumnos();
     }
   }
 
@@ -285,7 +297,7 @@ function Alumnos() {
                       </span>
                     ) : (
                       <span className="alumnos-promover-acciones">
-                        <button onClick={() => setPromoviendoId(alumno.id)}>Promover</button>
+                        <button onClick={() => { setPromoviendoId(alumno.id); setDivisionDestino(''); }}>Promover</button>
                         <button onClick={() => {
                           const motivo = window.prompt('Motivo de baja (egreso, cambio de escuela, etc.):');
                           if (motivo) confirmarBaja(alumno.id, motivo);
@@ -341,7 +353,7 @@ function Alumnos() {
                             <button onClick={() => { setDandoDeBajaId(null); setMotivoBaja(''); }}>Cancelar</button>
                           </span>
                         ) : (
-                          <button onClick={() => setDandoDeBajaId(alumno.id)}>Dar de baja</button>
+                          <button onClick={() => { setDandoDeBajaId(alumno.id); setMotivoBaja(''); }}>Dar de baja</button>
                         )}
                       </td>
                     )}

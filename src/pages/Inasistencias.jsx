@@ -64,7 +64,15 @@ function Inasistencias() {
     verificarDia();
   }, [divisionSeleccionada, fecha]);
 
-  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  useEffect(() => {
+    // Evita que marcas sin guardar de otro ciclo lectivo reaparezcan prellenadas
+    // y terminen guardándose etiquetadas con el ciclo equivocado.
+    setMarcas({});
+  }, [cicloLectivo]);
+
+  const divisionesOrdenadas = [...divisiones]
+    .filter((d) => d.activa)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const alumnosDelCurso = alumnos.filter(a =>
     a.matriculas.some(m => m.cicloLectivo === cicloLectivo && m.divisionId === parseInt(divisionSeleccionada))
@@ -95,6 +103,8 @@ function Inasistencias() {
     const alumnosConMarcas = Object.entries(marcas).filter(
       ([, marca]) => marca.ausenteTodoElDia || marca.llegadaTarde || marca.ausenteEducFisica
     );
+    const marcasRestantes = { ...marcas };
+    let guardados = 0;
 
     try {
       await cliente.post('/inasistencias/confirmar-dia', {
@@ -103,6 +113,10 @@ function Inasistencias() {
         fecha,
         huboClase: true
       });
+      // El día ya queda confirmado en el servidor desde acá, aunque después falle
+      // el guardado de algún alumno puntual — reflejarlo ya mismo evita que el aviso
+      // de "todavía no fue cargado" quede desactualizado.
+      setDiaYaConfirmado(true);
 
       for (const [alumnoId, marca] of alumnosConMarcas) {
         await cliente.post('/inasistencias', {
@@ -112,6 +126,9 @@ function Inasistencias() {
           fecha,
           ...marca
         });
+        delete marcasRestantes[alumnoId];
+        guardados++;
+        setMarcas({ ...marcasRestantes });
       }
 
       setMensajeExito(
@@ -119,10 +136,15 @@ function Inasistencias() {
           ? `Parte del ${fecha} guardado: ${alumnosConMarcas.length} novedades registradas`
           : `Parte del ${fecha} guardado: sin novedades, todos presentes`
       );
-      setMarcas({});
-      setDiaYaConfirmado(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudo guardar el parte del día');
+      if (guardados > 0) {
+        setError(
+          `${err.response?.data?.error || 'Falló el guardado de un alumno'} — se guardaron ${guardados} de ${alumnosConMarcas.length} novedades. ` +
+          'Las que quedaron pendientes siguen marcadas arriba: podés reintentar sin duplicar las que ya se guardaron.'
+        );
+      } else {
+        setError(err.response?.data?.error || 'No se pudo guardar el parte del día');
+      }
     } finally {
       setGuardando(false);
     }

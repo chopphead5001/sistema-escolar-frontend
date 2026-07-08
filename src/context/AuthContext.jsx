@@ -3,11 +3,20 @@ import cliente from '../api/cliente';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
+function leerUsuarioGuardado() {
   const usuarioGuardado = localStorage.getItem('usuario');
-  const [usuario, setUsuario] = useState(
-    usuarioGuardado ? JSON.parse(usuarioGuardado) : null
-  );
+  if (!usuarioGuardado) return null;
+  try {
+    return JSON.parse(usuarioGuardado);
+  } catch (error) {
+    localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
+    return null;
+  }
+}
+
+export function AuthProvider({ children }) {
+  const [usuario, setUsuario] = useState(leerUsuarioGuardado);
 
   async function iniciarSesion(nombreUsuario, password) {
     const respuesta = await cliente.post('/auth/login', { nombreUsuario, password });

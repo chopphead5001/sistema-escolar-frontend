@@ -8,15 +8,7 @@ import { useCicloLectivo } from '../context/CicloLectivoContext';
 function MateriasAdeudadas() {
   const { usuario } = useAuth();
   const { cicloLectivo } = useCicloLectivo();
-
-  if (usuario.rol !== 'SECRETARIA') {
-    return (
-      <div className="alumnos-pagina">
-        <h1>Materias adeudadas</h1>
-        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
-      </div>
-    );
-  }
+  const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [alumnos, setAlumnos] = useState([]);
   const [divisiones, setDivisiones] = useState([]);
@@ -55,9 +47,9 @@ function MateriasAdeudadas() {
     }
   }
 
-    useEffect(() => {
-        cargarDatos();
-    }, [cicloLectivo]);
+  useEffect(() => {
+    if (esSecretaria) cargarDatos();
+  }, [cicloLectivo, esSecretaria]);
 
   useEffect(() => {
     async function cargarPlan() {
@@ -140,14 +132,27 @@ function MateriasAdeudadas() {
     }
   });
 
-  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const divisionesOrdenadas = [...divisiones]
+    .filter((d) => d.activa)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const alumnosFiltrados = divisionFiltro
-    ? alumnos.filter(a => a.matriculas[a.matriculas.length - 1]?.divisionId === parseInt(divisionFiltro))
+    ? alumnos.filter(a => a.matriculas.some(
+        (m) => m.cicloLectivo === cicloLectivo && m.divisionId === parseInt(divisionFiltro)
+      ))
     : [];
 
   const etiquetaModalidad = { INTENSIFICA: 'Intensifica', RECURSA: 'Recursa' };
   const etiquetaEstado = { CCA: 'CCA', CSA: 'CSA', APROBADA: 'Aprobada', TRASLADADA: 'Trasladada' };
+
+  if (!esSecretaria) {
+    return (
+      <div className="alumnos-pagina">
+        <h1>Materias adeudadas</h1>
+        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="alumnos-pagina">

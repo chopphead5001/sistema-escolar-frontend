@@ -8,15 +8,7 @@ import './MateriasAdeudadas.css';
 function Licencias() {
   const { usuario } = useAuth();
   const { cicloLectivo } = useCicloLectivo();
-
-  if (usuario.rol !== 'SECRETARIA') {
-    return (
-      <div className="alumnos-pagina">
-        <h1>Licencias</h1>
-        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
-      </div>
-    );
-  }
+  const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [personas, setPersonas] = useState([]);
   const [tiposLicencia, setTiposLicencia] = useState([]);
@@ -60,8 +52,8 @@ function Licencias() {
   }
 
   useEffect(() => {
-    cargarDatos();
-  }, [cicloLectivo]);
+    if (esSecretaria) cargarDatos();
+  }, [cicloLectivo, esSecretaria]);
 
   const personasFiltradas = busquedaPersona
     ? personas.filter((p) => `${p.apellido} ${p.nombre}`.toLowerCase().includes(busquedaPersona.toLowerCase()))
@@ -165,8 +157,11 @@ function Licencias() {
       return;
     }
     setGuardando(true);
+    const cargoIdsOriginales = formulario.cargoIds;
+    const cargoIdsRestantes = [...cargoIdsOriginales];
     try {
-      for (const cargoId of formulario.cargoIds) {
+      while (cargoIdsRestantes.length > 0) {
+        const cargoId = cargoIdsRestantes[0];
         await cliente.post('/licencias', {
           personaId: parseInt(formulario.personaId),
           cargoId,
@@ -179,19 +174,41 @@ function Licencias() {
             : null,
           cicloLectivo
         });
+        // Se saca de la lista de pendientes recién después de que el POST confirmó éxito,
+        // así un reintento tras un fallo parcial no vuelve a crear los que ya se guardaron.
+        cargoIdsRestantes.shift();
       }
       setMensajeExito(
-        formulario.cargoIds.length === 1
+        cargoIdsOriginales.length === 1
           ? 'Licencia registrada correctamente'
-          : `Se registraron ${formulario.cargoIds.length} licencias (una por cada cargo seleccionado)`
+          : `Se registraron ${cargoIdsOriginales.length} licencias (una por cada cargo seleccionado)`
       );
       cerrarFormulario();
-      cargarDatos();
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudo registrar la licencia');
+      const guardados = cargoIdsOriginales.length - cargoIdsRestantes.length;
+      setFormulario((anterior) => ({ ...anterior, cargoIds: cargoIdsRestantes }));
+      if (guardados > 0) {
+        setError(
+          `${err.response?.data?.error || 'Falló el registro de uno de los cargos'} — ` +
+          `se guardaron ${guardados} de ${cargoIdsOriginales.length} licencias. ` +
+          'Los cargos restantes quedaron seleccionados: podés reintentar sin duplicar los que ya se guardaron.'
+        );
+      } else {
+        setError(err.response?.data?.error || 'No se pudo registrar la licencia');
+      }
     } finally {
       setGuardando(false);
+      cargarDatos();
     }
+  }
+
+  if (!esSecretaria) {
+    return (
+      <div className="alumnos-pagina">
+        <h1>Licencias</h1>
+        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
+      </div>
+    );
   }
 
   return (

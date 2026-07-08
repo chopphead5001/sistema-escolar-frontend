@@ -6,15 +6,7 @@ import './MateriasAdeudadas.css';
 
 function Divisiones() {
   const { usuario } = useAuth();
-
-  if (usuario.rol !== 'SECRETARIA') {
-    return (
-      <div className="alumnos-pagina">
-        <h1>Divisiones</h1>
-        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
-      </div>
-    );
-  }
+  const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [divisiones, setDivisiones] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -40,8 +32,8 @@ function Divisiones() {
   }
 
   useEffect(() => {
-    cargarDatos();
-  }, []);
+    if (esSecretaria) cargarDatos();
+  }, [esSecretaria]);
 
   const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
@@ -89,6 +81,15 @@ function Divisiones() {
     } catch (err) {
       setError(`No se pudo ${accion} la división`);
     }
+  }
+
+  if (!esSecretaria) {
+    return (
+      <div className="alumnos-pagina">
+        <h1>Divisiones</h1>
+        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
+      </div>
+    );
   }
 
   return (

@@ -7,15 +7,7 @@ import './Alumnos.css';
 function Cargos() {
   const { usuario } = useAuth();
   const { cicloLectivo } = useCicloLectivo();
-
-  if (usuario.rol !== 'SECRETARIA') {
-    return (
-      <div className="alumnos-pagina">
-        <h1>Cargos</h1>
-        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
-      </div>
-    );
-  }
+  const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [personas, setPersonas] = useState([]);
   const [cargos, setCargos] = useState([]);
@@ -58,10 +50,12 @@ function Cargos() {
   }
 
   useEffect(() => {
-    cargarDatos();
-  }, [cicloLectivo]);
+    if (esSecretaria) cargarDatos();
+  }, [cicloLectivo, esSecretaria]);
 
-  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const divisionesOrdenadas = [...divisiones]
+    .filter((d) => d.activa)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const personasFiltradas = busquedaPersona
   ? personas.filter((p) =>
@@ -140,6 +134,15 @@ function Cargos() {
     } catch (err) {
       setError('No se pudo crear el nombre de cargo');
     }
+  }
+
+  if (!esSecretaria) {
+    return (
+      <div className="alumnos-pagina">
+        <h1>Cargos</h1>
+        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
+      </div>
+    );
   }
 
   return (

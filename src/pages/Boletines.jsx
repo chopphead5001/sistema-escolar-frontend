@@ -70,6 +70,9 @@ function Boletines() {
     }
     cargarPlan();
     setMateriaSeleccionada('');
+    // Also cubre el caso de cambiar el ciclo lectivo global mientras había notas sin guardar:
+    // evita que reaparezcan prellenadas y terminen guardándose contra el ciclo equivocado.
+    setNotas({});
   }, [divisionSeleccionada, cicloLectivo]);
 
   useEffect(() => {
@@ -90,7 +93,9 @@ function Boletines() {
     cargarCalificaciones();
   }, [divisionSeleccionada, materiaSeleccionada, cuatrimestre, cicloLectivo]);
 
-  const divisionesOrdenadas = [...divisiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const divisionesOrdenadas = [...divisiones]
+    .filter((d) => d.activa)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
   const nombreDivisionSeleccionada = divisiones.find((d) => d.id === parseInt(divisionSeleccionada))?.nombre || '';
 
   const alumnosDelCurso = alumnos.filter(a =>
@@ -141,10 +146,17 @@ function Boletines() {
       return;
     }
 
+    // Copia local de las calificaciones, que se va actualizando a medida que se guarda
+    // cada alumno: así, si el guardado falla a mitad de camino, un reintento hace PUT
+    // (no vuelve a crear un registro) sobre los que ya se guardaron en este mismo intento.
+    let calificacionesLocales = calificaciones;
+    const notasRestantes = { ...notas };
+    let guardados = 0;
+
     try {
       for (const alumnoId of alumnosConCambios) {
-        const nota = notas[alumnoId];
-        const existente = obtenerCalificacionExistente(parseInt(alumnoId));
+        const nota = notasRestantes[alumnoId];
+        const existente = calificacionesLocales.find(c => c.alumnoId === parseInt(alumnoId));
 
         const datos = {
           alumnoId: parseInt(alumnoId),
@@ -157,22 +169,30 @@ function Boletines() {
           notaCuatrimestre: nota.notaCuatrimestre === '' ? null : parseFloat(nota.notaCuatrimestre)
         };
 
-        if (existente) {
-          await cliente.put(`/boletines/calificaciones/${existente.id}`, datos);
-        } else {
-          await cliente.post('/boletines/calificaciones', datos);
-        }
+        const respuesta = existente
+          ? await cliente.put(`/boletines/calificaciones/${existente.id}`, datos)
+          : await cliente.post('/boletines/calificaciones', datos);
+
+        calificacionesLocales = existente
+          ? calificacionesLocales.map((c) => (c.id === existente.id ? respuesta.data : c))
+          : [...calificacionesLocales, respuesta.data];
+        guardados++;
+
+        delete notasRestantes[alumnoId];
+        setCalificaciones(calificacionesLocales);
+        setNotas({ ...notasRestantes });
       }
 
-      setMensajeExito(`Se guardaron las notas de ${alumnosConCambios.length} alumnos`);
-      setNotas({});
-
-      const respuesta = await cliente.get('/boletines/calificaciones', {
-        params: { divisionId: divisionSeleccionada, materiaId: materiaSeleccionada, cicloLectivo, cuatrimestre }
-      });
-      setCalificaciones(respuesta.data);
+      setMensajeExito(`Se guardaron las notas de ${guardados} alumnos`);
     } catch (err) {
-      setError(err.response?.data?.error || 'No se pudieron guardar las notas');
+      if (guardados > 0) {
+        setError(
+          `${err.response?.data?.error || 'Falló el guardado de un alumno'} — se guardaron ${guardados} de ${alumnosConCambios.length}. ` +
+          'Los que fallaron siguen editables arriba: podés reintentar sin duplicar los que ya se guardaron.'
+        );
+      } else {
+        setError(err.response?.data?.error || 'No se pudieron guardar las notas');
+      }
     } finally {
       setGuardando(false);
     }

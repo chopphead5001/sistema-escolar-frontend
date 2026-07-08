@@ -13,6 +13,7 @@ import Cargos from './pages/Cargos';
 import Divisiones from './pages/Divisiones';
 import PartesDiarios from './pages/PartesDiarios';
 import Licencias from './pages/Licencias';
+import Informes from './pages/Informes';
 
 function RutaProtegida({ children }) {
   const { usuario } = useAuth();
@@ -20,16 +21,6 @@ function RutaProtegida({ children }) {
     return <Navigate to="/login" />;
   }
   return children;
-}
-
-// Pantalla temporal mientras no construimos cada módulo en detalle
-function ProximamenteDisponible({ nombre }) {
-  return (
-    <div>
-      <h1>{nombre}</h1>
-      <p>Esta sección está en construcción.</p>
-    </div>
-  );
 }
 
 function RutasDeLaApp() {
@@ -55,7 +46,7 @@ function RutasDeLaApp() {
         <Route path="partes-diarios" element={<PartesDiarios />} />
         <Route path="licencias" element={<Licencias />} />
         <Route path="materias-adeudadas" element={<MateriasAdeudadas />} />
-        <Route path="informes" element={<ProximamenteDisponible nombre="Informes" />} />
+        <Route path="informes" element={<Informes />} />
       </Route>
     </Routes>
   );

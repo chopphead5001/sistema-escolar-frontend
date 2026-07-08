@@ -7,15 +7,7 @@ import './Alumnos.css';
 function Personal() {
   const { usuario } = useAuth();
   const { cicloLectivo } = useCicloLectivo();
-
-  if (usuario.rol !== 'SECRETARIA') {
-    return (
-      <div className="alumnos-pagina">
-        <h1>Personal</h1>
-        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
-      </div>
-    );
-  }
+  const esSecretaria = usuario.rol === 'SECRETARIA';
 
   const [personas, setPersonas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -41,8 +33,8 @@ function Personal() {
   }
 
   useEffect(() => {
-    cargarPersonal();
-  }, []);
+    if (esSecretaria) cargarPersonal();
+  }, [esSecretaria]);
 
   async function manejarAlta(evento) {
     evento.preventDefault();
@@ -65,6 +57,15 @@ function Personal() {
     ADMINISTRATIVO: 'Administrativo',
     AUXILIAR: 'Auxiliar'
   };
+
+  if (!esSecretaria) {
+    return (
+      <div className="alumnos-pagina">
+        <h1>Personal</h1>
+        <p className="alumnos-vacio">No tenés permiso para acceder a este módulo.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="alumnos-pagina">
