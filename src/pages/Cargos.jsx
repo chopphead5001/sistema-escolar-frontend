@@ -57,11 +57,19 @@ function Cargos() {
     .filter((d) => d.activa)
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+  // Sólo personal activo puede recibir un cargo nuevo; si se está editando un cargo
+  // cuya persona ya fue deshabilitada, igual se la deja en la lista para que el
+  // select (deshabilitado en modo edición) siga mostrando su nombre correctamente.
+  const personaDelCargoEnEdicion = cargoEnEdicion
+    ? personas.find((p) => p.id === parseInt(formulario.personaId))
+    : null;
+  const personasSeleccionables = personas.filter((p) => p.activo || p.id === personaDelCargoEnEdicion?.id);
+
   const personasFiltradas = busquedaPersona
-  ? personas.filter((p) =>
+  ? personasSeleccionables.filter((p) =>
       `${p.apellido} ${p.nombre}`.toLowerCase().includes(busquedaPersona.toLowerCase())
     )
-  : personas;
+  : personasSeleccionables;
 
   function abrirFormularioNuevo() {
     setCargoEnEdicion(null);

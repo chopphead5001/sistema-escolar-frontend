@@ -55,13 +55,16 @@ function Licencias() {
     if (esSecretaria) cargarDatos();
   }, [cicloLectivo, esSecretaria]);
 
+  // El personal deshabilitado no puede tomar una licencia nueva ni cubrir como suplente.
+  const personasActivas = personas.filter((p) => p.activo);
+
   const personasFiltradas = busquedaPersona
-    ? personas.filter((p) => `${p.apellido} ${p.nombre}`.toLowerCase().includes(busquedaPersona.toLowerCase()))
-    : personas;
+    ? personasActivas.filter((p) => `${p.apellido} ${p.nombre}`.toLowerCase().includes(busquedaPersona.toLowerCase()))
+    : personasActivas;
 
   const personasParaSuplente = busquedaSuplente
-    ? personas.filter((p) => `${p.apellido} ${p.nombre}`.toLowerCase().includes(busquedaSuplente.toLowerCase()))
-    : personas;
+    ? personasActivas.filter((p) => `${p.apellido} ${p.nombre}`.toLowerCase().includes(busquedaSuplente.toLowerCase()))
+    : personasActivas;
 
   const personaSeleccionada = personas.find((p) => p.id === parseInt(formulario.personaId));
   const cargosDeLaPersona = personaSeleccionada
