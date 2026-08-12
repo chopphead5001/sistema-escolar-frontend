@@ -2,92 +2,128 @@
 .boletines-tabla input {
   width: 100%;
   padding: 6px 8px;
-  border: 0.5px solid var(--color-borde);
-  border-radius: 6px;
   font-size: 13px;
-  font-family: inherit;
 }
 
 .boletines-input-nota {
   width: 70px;
 }
 
-.boletines-link-plan {
-  background: none;
-  border: none;
-  color: var(--color-acento);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 8px 0 0;
-  text-decoration: underline;
-}
-
-.boletines-panel-plan {
-  margin-top: 14px;
-  padding: 14px;
-  background-color: var(--color-fondo);
-  border-radius: 8px;
-}
-
-.boletines-panel-plan-titulo {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 0 8px;
-  color: var(--color-texto-principal);
-}
-
-.boletines-lista-plan {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.boletines-lista-plan li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: var(--color-superficie);
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.boletines-lista-plan li button {
-  background: none;
-  border: none;
-  color: var(--color-error);
+.boletines-aviso-sin-plan {
   font-size: 12px;
-  cursor: pointer;
+  color: var(--color-texto-secundario);
+  margin: 4px 0 0;
 }
 
 .boletines-vacio-plan {
   color: var(--color-texto-secundario);
   font-style: italic;
-  background-color: transparent !important;
 }
 
-.boletines-agregar-plan {
+.boletines-plan-encabezado {
+  font-size: 13px;
+  color: var(--color-texto-secundario);
+  margin: 14px 0 0;
+}
+
+.boletines-fila-division-anterior {
+  background-color: var(--color-fondo);
+}
+
+.boletines-etiqueta-division-anterior {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--color-texto-secundario);
+}
+
+.boletines-selector-anios {
   display: flex;
-  gap: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 6px 0;
 }
 
-.boletines-agregar-plan select {
-  flex: 1;
-  padding: 8px 10px;
-  border: 0.5px solid var(--color-borde);
-  border-radius: 6px;
+.boletines-selector-anios-opcion {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
-}
-
-.boletines-agregar-plan button {
-  padding: 8px 14px;
-  background-color: var(--color-acento);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
+}
+
+.boletines-tabla-scroll {
+  overflow-x: auto;
+}
+
+/* Plan de materias: 2 piletas lado a lado, arrastrás una materia de una a la otra */
+.boletines-piletas {
+  display: flex;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.boletines-pileta {
+  flex: 1;
+  min-width: 240px;
+  padding: 14px;
+  background-color: var(--color-superficie);
+  border-radius: var(--radio-borde);
+  border: 1px dashed var(--color-borde);
+  box-shadow: var(--sombra-sm);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.boletines-pileta-sobre-arrastre {
+  border-color: var(--color-acento);
+  background-color: var(--color-acento-tenue);
+}
+
+.boletines-pileta-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: var(--color-texto-principal);
+}
+
+.boletines-materia-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-sm);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: element;
+  transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.boletines-materia-card:hover {
+  box-shadow: var(--sombra-sm);
+  transform: translateY(-1px);
+}
+
+.boletines-materia-card:active {
+  cursor: grabbing;
+  opacity: 0.7;
+  transform: none;
+}
+
+.boletines-materia-card button {
+  background: none;
+  border: none;
+  color: var(--color-acento);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
 }

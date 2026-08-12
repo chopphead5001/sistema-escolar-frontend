@@ -4,17 +4,19 @@
   align-items: center;
   justify-content: center;
   background-color: var(--color-fondo);
+  background-image: radial-gradient(circle at 15% 15%, rgba(79, 70, 229, 0.10), transparent 45%),
+                     radial-gradient(circle at 85% 85%, rgba(124, 116, 240, 0.10), transparent 45%);
   padding: 20px;
 }
 
 .login-tarjeta {
   background-color: var(--color-superficie);
-  border: 0.5px solid var(--color-borde);
-  border-radius: var(--radio-borde);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-lg);
   padding: 40px;
   width: 100%;
   max-width: 380px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--sombra-lg);
 }
 
 .login-encabezado {
@@ -23,13 +25,22 @@
 }
 
 .login-icono {
-  font-size: 36px;
-  margin-bottom: 8px;
+  font-size: 30px;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radio-borde);
+  background: linear-gradient(135deg, var(--color-acento), #7C74F0);
+  box-shadow: var(--sombra-md);
 }
 
 .login-encabezado h1 {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   margin: 0 0 4px;
   color: var(--color-texto-principal);
 }
@@ -55,16 +66,7 @@
 
 .login-formulario input {
   padding: 10px 12px;
-  border: 0.5px solid var(--color-borde);
-  border-radius: 8px;
   font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.login-formulario input:focus {
-  border-color: var(--color-acento);
 }
 
 .login-error {
@@ -72,7 +74,7 @@
   color: var(--color-error);
   font-size: 13px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radio-sm);
   margin-top: 12px;
 }
 
@@ -82,18 +84,21 @@
   background-color: var(--color-acento);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radio-sm);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s;
+  box-shadow: var(--sombra-sm);
 }
 
 .login-formulario button:hover:not(:disabled) {
   background-color: var(--color-acento-hover);
+  color: white;
+  box-shadow: var(--sombra-md);
 }
 
 .login-formulario button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }

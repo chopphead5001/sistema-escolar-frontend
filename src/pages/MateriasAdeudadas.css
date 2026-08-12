@@ -37,21 +37,20 @@
 
 .materiasadeudadas-acciones button {
   padding: 5px 10px;
-  border: 0.5px solid var(--color-borde);
-  border-radius: 6px;
-  background-color: var(--color-superficie);
   font-size: 12px;
-  cursor: pointer;
-}
-
-.materiasadeudadas-acciones button:hover {
-  background-color: var(--color-fondo);
 }
 
 .materiasadeudadas-aprobar {
-  background-color: var(--color-acento) !important;
+  background-color: var(--color-exito) !important;
   color: white !important;
   border: none !important;
+  box-shadow: var(--sombra-sm) !important;
+}
+
+.materiasadeudadas-aprobar:hover {
+  background-color: #117D4A !important;
+  color: white !important;
+  box-shadow: var(--sombra-md) !important;
 }
 
 .materiasadeudadas-estado-trasladada {
@@ -63,4 +62,11 @@
   background-color: #5C6BC0 !important;
   color: white !important;
   border: none !important;
+  box-shadow: var(--sombra-sm) !important;
+}
+
+.materiasadeudadas-pasar-ciclo:hover {
+  background-color: #4A56A6 !important;
+  color: white !important;
+  box-shadow: var(--sombra-md) !important;
 }

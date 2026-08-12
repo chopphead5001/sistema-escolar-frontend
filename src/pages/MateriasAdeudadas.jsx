@@ -138,7 +138,7 @@ function MateriasAdeudadas() {
 
   const alumnosFiltrados = divisionFiltro
     ? alumnos.filter(a => a.matriculas.some(
-        (m) => m.cicloLectivo === cicloLectivo && m.divisionId === parseInt(divisionFiltro)
+        (m) => m.cicloLectivo === cicloLectivo && m.divisionId === parseInt(divisionFiltro) && m.activa
       ))
     : [];
 
@@ -280,9 +280,9 @@ function MateriasAdeudadas() {
                       </span>
                     )}
                   </td>
-                  <td className="materiasadeudadas-acciones">
+                  <td>
                     {deuda.estado !== 'APROBADA' && deuda.estado !== 'TRASLADADA' && (
-                      <>
+                      <span className="materiasadeudadas-acciones">
                         <button onClick={() => actualizarEstado(deuda.id, deuda.estado === 'CSA' ? 'CCA' : 'CSA')}>
                           Marcar {deuda.estado === 'CSA' ? 'CCA' : 'CSA'}
                         </button>
@@ -301,7 +301,7 @@ function MateriasAdeudadas() {
                         >
                           Pasar a {deuda.cicloActual + 1}
                         </button>
-                      </>
+                      </span>
                     )}
                   </td>
                 </tr>

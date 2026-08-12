@@ -72,19 +72,23 @@
   background-color: var(--color-acento);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radio-sm);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: var(--sombra-sm);
 }
 
 .inasistencias-boton-guardar:hover:not(:disabled) {
   background-color: var(--color-acento-hover);
+  color: white;
+  box-shadow: var(--sombra-md);
 }
 
 .inasistencias-boton-guardar:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .inasistencias-aviso-verificando {
@@ -106,4 +110,35 @@
   font-size: 13px;
   color: var(--color-texto-secundario);
   margin: 8px 0 0;
+}
+
+.inasistencias-sin-justificar-alerta {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.inasistencias-resumen-totales {
+  font-size: 14px;
+  margin: 4px 0 16px;
+}
+
+.inasistencias-form-rango {
+  background-color: var(--color-fondo);
+}
+
+.inasistencias-form-rango button[type="submit"] {
+  padding: 8px 14px;
+  background-color: var(--color-acento);
+  color: white;
+  border: none;
+  border-radius: var(--radio-sm);
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--sombra-sm);
+}
+
+.inasistencias-form-rango button[type="submit"]:hover {
+  background-color: var(--color-acento-hover);
+  color: white;
+  box-shadow: var(--sombra-md);
 }

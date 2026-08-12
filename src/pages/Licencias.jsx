@@ -474,8 +474,10 @@ function Licencias() {
                   )}
                 </td>
                 <td>{licencia.suplente ? `${licencia.suplente.apellido}, ${licencia.suplente.nombre}` : '-'}</td>
-                <td className="materiasadeudadas-acciones">
-                  <button onClick={() => abrirFormularioEdicion(licencia)}>Editar</button>
+                <td>
+                  <span className="materiasadeudadas-acciones">
+                    <button onClick={() => abrirFormularioEdicion(licencia)}>Editar</button>
+                  </span>
                 </td>
               </tr>
             ))}

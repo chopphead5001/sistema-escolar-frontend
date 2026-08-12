@@ -1,0 +1,285 @@
+/* ===== Selector de turno (Registro) ===== */
+.partes-turno-selector {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background-color: var(--color-fondo);
+  border-radius: var(--radio-borde);
+  border: 1px solid var(--color-borde);
+  width: fit-content;
+}
+
+.partes-turno-boton {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-texto-secundario);
+}
+
+.partes-turno-boton:hover {
+  background-color: transparent;
+  color: var(--color-texto-principal);
+}
+
+.partes-turno-boton-activo,
+.partes-turno-boton-activo:hover {
+  background-color: var(--color-superficie);
+  color: var(--color-acento);
+  font-weight: 600;
+  box-shadow: var(--sombra-sm);
+}
+
+/* ===== Tarjetas colapsables (división / ranking) ===== */
+.partes-tarjeta {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  box-shadow: var(--sombra-sm);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.partes-tarjeta-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.partes-tarjeta-nombre {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--color-texto-principal);
+  flex: 1;
+}
+
+.partes-badge {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background-color: var(--color-fondo);
+  color: var(--color-texto-secundario);
+  white-space: nowrap;
+}
+
+.partes-badge-alerta {
+  background-color: var(--color-error-fondo);
+  color: var(--color-error);
+}
+
+.partes-chevron {
+  color: var(--color-texto-terciario);
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+
+.partes-chevron-abierto {
+  transform: rotate(180deg);
+}
+
+.partes-tarjeta-body {
+  border-top: 1px solid var(--color-borde);
+}
+
+/* ===== Filas persona + toggle presente/ausente (Registro) ===== */
+.partes-fila-persona {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.partes-fila-persona:last-child {
+  border-bottom: none;
+}
+
+.partes-persona-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.partes-persona-nombre {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-texto-principal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.partes-persona-detalle {
+  font-size: 12px;
+  color: var(--color-texto-secundario);
+  margin-top: 1px;
+}
+
+.partes-toggle {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radio-sm);
+  border: 1.5px solid var(--color-borde);
+  background-color: var(--color-fondo);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.partes-toggle-presente {
+  background-color: var(--color-exito-fondo);
+  border-color: var(--color-exito);
+  color: var(--color-exito);
+}
+
+.partes-toggle-ausente {
+  background-color: var(--color-error-fondo);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.partes-toggle:hover {
+  filter: brightness(0.97);
+}
+
+/* ===== Guardar / cancelar (Registro) ===== */
+.partes-acciones-guardar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  padding: 14px 0 4px;
+  margin-top: 8px;
+  background: linear-gradient(to bottom, transparent, var(--color-fondo) 30%);
+}
+
+.partes-boton-guardar {
+  flex: 1;
+  padding: 12px;
+  background-color: var(--color-acento);
+  color: white;
+  border: none;
+  border-radius: var(--radio-sm);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--sombra-sm);
+}
+
+.partes-boton-guardar:hover:not(:disabled) {
+  background-color: var(--color-acento-hover);
+  color: white;
+  box-shadow: var(--sombra-md);
+}
+
+/* ===== Filtro de mes (Estadísticas) ===== */
+.partes-filtro-mes {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 16px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.partes-mes-boton {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-borde);
+  background-color: var(--color-superficie);
+  box-shadow: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-texto-secundario);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.partes-mes-boton:hover {
+  background-color: var(--color-fondo);
+  color: var(--color-texto-principal);
+}
+
+.partes-mes-boton-activo,
+.partes-mes-boton-activo:hover {
+  background-color: var(--color-acento);
+  border-color: var(--color-acento);
+  color: white;
+}
+
+/* ===== Tarjetas de estadísticas resumen ===== */
+.partes-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.partes-stat-tile {
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  box-shadow: var(--sombra-sm);
+  padding: 14px 16px;
+}
+
+.partes-stat-numero {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-texto-principal);
+  line-height: 1.1;
+}
+
+.partes-stat-etiqueta {
+  font-size: 11.5px;
+  color: var(--color-texto-secundario);
+  margin-top: 4px;
+}
+
+.partes-ranking-subtitulo {
+  font-size: 12px;
+  color: var(--color-texto-secundario);
+  margin-top: 2px;
+}
+
+/* ===== Detalle expandido del ranking ===== */
+.partes-fila-detalle {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.partes-fila-detalle:last-child {
+  border-bottom: none;
+}
+
+.partes-fila-detalle-encabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-texto-principal);
+  margin-bottom: 4px;
+}
+
+.partes-fila-detalle-badges {
+  display: flex;
+  gap: 5px;
+}
+
+.partes-fila-detalle-fechas {
+  font-size: 12px;
+  color: var(--color-texto-secundario);
+}
+
+@media (max-width: 720px) {
+  .partes-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

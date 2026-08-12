@@ -1,0 +1,143 @@
+.cargos-tabs {
+  display: flex;
+  width: fit-content;
+  gap: 2px;
+  padding: 3px;
+  margin: 4px 0 24px;
+  background-color: var(--color-fondo);
+  border-radius: var(--radio-borde);
+  border: 1px solid var(--color-borde);
+}
+
+/* Sub-menú anidado dentro de una pestaña (ej. "Por división / Por alumno"
+   adentro de "Cargar notas"): más chico y con una etiqueta al lado, para que
+   no se confunda visualmente con el menú principal del módulo que tiene justo
+   arriba. */
+.cargos-subtabs-contenedor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.cargos-subtabs-etiqueta {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-texto-terciario);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cargos-tabs-secundarias {
+  margin: 0;
+  padding: 2px;
+}
+
+.cargos-tabs-secundarias .cargos-tab {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.cargos-tab {
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-texto-secundario);
+  box-shadow: none;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cargos-tab:hover {
+  background-color: transparent;
+  color: var(--color-texto-principal);
+}
+
+.cargos-tab-activa,
+.cargos-tab-activa:hover {
+  background-color: var(--color-superficie);
+  color: var(--color-acento);
+  font-weight: 600;
+  box-shadow: var(--sombra-sm);
+}
+
+.cargos-grilla-horario {
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12px;
+  width: 100%;
+  table-layout: fixed;
+  background-color: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  box-shadow: var(--sombra-sm);
+  overflow: hidden;
+}
+
+.cargos-grilla-horario th,
+.cargos-grilla-horario td {
+  border: 1px solid var(--color-borde);
+  padding: 4px 6px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.cargos-grilla-horario th {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--color-texto-terciario);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: var(--color-superficie-hover);
+  padding: 9px 6px;
+}
+
+.cargos-grilla-horario th:first-child,
+.cargos-grilla-horario td:first-child {
+  text-align: left;
+  width: 90px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cargos-grilla-horario td:first-child {
+  color: var(--color-texto-secundario);
+  font-weight: 600;
+  background-color: var(--color-superficie-hover);
+}
+
+.cargos-grilla-horario tbody tr td:not(:first-child) {
+  transition: background-color 0.12s ease;
+}
+
+.cargos-grilla-horario tbody tr:hover td:not(:first-child) {
+  background-color: var(--color-superficie-hover);
+}
+
+.cargos-horario-admin-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cargos-horario-admin-fila span {
+  width: 32px;
+  font-size: 13px;
+}
+
+.cargos-horario-resumen {
+  font-size: 12px;
+  color: var(--color-texto-secundario);
+  max-width: 260px;
+  white-space: normal;
+}
+
+.cargos-horario-propio-nota {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-texto-secundario);
+}

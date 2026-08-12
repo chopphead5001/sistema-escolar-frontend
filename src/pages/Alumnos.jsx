@@ -28,6 +28,8 @@ function Alumnos() {
   const [dandoDeBajaId, setDandoDeBajaId] = useState(null);
   const [motivoBaja, setMotivoBaja] = useState('');
 
+  const [grupoSobreArrastre, setGrupoSobreArrastre] = useState(null);
+
   async function cargarAlumnos() {
     setCargando(true);
     setError('');
@@ -77,14 +79,31 @@ function Alumnos() {
 
   const alumnosDelCiclo = alumnos.filter((alumno) => !!matriculaActivaDelCiclo(alumno));
 
+  // Agrupado por divisionId (no por nombre): el drag and drop necesita el id y el
+  // año de cada división para saber a dónde se puede soltar un alumno.
   const gruposDelCiclo = {};
+  // Sembrado con TODAS las divisiones activas primero: aunque una división esté
+  // vacía (0 alumnos todavía), tiene que aparecer igual como destino válido para
+  // arrastrar un alumno ahí — si no, nunca se podría mover a alguien a un salón
+  // que no tuviera ya al menos un alumno cargado.
+  divisiones.filter((d) => d.activa).forEach((division) => {
+    gruposDelCiclo[division.id] = { division, alumnos: [] };
+  });
   alumnosDelCiclo.forEach((alumno) => {
     const matricula = matriculaActivaDelCiclo(alumno);
-    const division = matricula?.division?.nombre || 'Sin división';
-    if (!gruposDelCiclo[division]) gruposDelCiclo[division] = [];
-    gruposDelCiclo[division].push(alumno);
+    const divisionId = matricula?.divisionId;
+    if (divisionId == null) return;
+    // Puede ser una división ya inactiva (el alumno sigue matriculado ahí igual):
+    // se muestra su grupo aunque no haya sido sembrado arriba.
+    if (!gruposDelCiclo[divisionId]) gruposDelCiclo[divisionId] = { division: matricula.division || null, alumnos: [] };
+    gruposDelCiclo[divisionId].alumnos.push(alumno);
   });
-  const divisionesDelCicloOrdenadas = Object.keys(gruposDelCiclo).sort();
+  const idsDivisionesDelCicloOrdenados = Object.keys(gruposDelCiclo).sort((a, b) => {
+    const divisionA = gruposDelCiclo[a].division;
+    const divisionB = gruposDelCiclo[b].division;
+    if (!divisionA || !divisionB) return 0;
+    return divisionA.anio !== divisionB.anio ? divisionA.anio - divisionB.anio : divisionA.nombre.localeCompare(divisionB.nombre);
+  });
 
   const alumnosParaPromover = alumnos.filter((alumno) => {
     const yaTieneEsteCiclo = alumno.matriculas.some((m) => m.cicloLectivo === cicloLectivo);
@@ -173,6 +192,48 @@ function Alumnos() {
       cargarAlumnos();
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo dar de baja al alumno');
+    }
+  }
+
+  function manejarDragStartAlumno(evento, alumno, divisionOrigenId) {
+    evento.dataTransfer.effectAllowed = 'move';
+    evento.dataTransfer.setData('application/json', JSON.stringify({
+      alumnoId: alumno.id,
+      nombreAlumno: `${alumno.apellido}, ${alumno.nombre}`,
+      divisionOrigenId
+    }));
+  }
+
+  async function manejarDropEnGrupo(evento, divisionDestinoId) {
+    evento.preventDefault();
+    setGrupoSobreArrastre(null);
+    const datos = evento.dataTransfer.getData('application/json');
+    if (!datos) return;
+    const { alumnoId, nombreAlumno, divisionOrigenId } = JSON.parse(datos);
+    if (divisionOrigenId === divisionDestinoId) return;
+
+    const divisionOrigen = gruposDelCiclo[divisionOrigenId]?.division;
+    const divisionDestino = gruposDelCiclo[divisionDestinoId]?.division;
+    if (!divisionOrigen || !divisionDestino) return;
+
+    if (divisionOrigen.anio !== divisionDestino.anio) {
+      window.alert('Solo se puede cambiar de división dentro del mismo año.');
+      return;
+    }
+
+    if (!window.confirm(
+      `¿Confirmás que querés pasar a ${nombreAlumno} de ${divisionOrigen.nombre} a ${divisionDestino.nombre}?\n\n` +
+      `Sus notas y asistencias ya cargadas en ${divisionOrigen.nombre} quedan intactas ahí (no se borran ni se mueven); ` +
+      `de ahora en más va a aparecer en ${divisionDestino.nombre}.`
+    )) return;
+
+    setError('');
+    try {
+      await cliente.put(`/alumnos/${alumnoId}/cambiar-division`, { divisionId: divisionDestinoId, cicloLectivo });
+      setMensajeExito(`${nombreAlumno} pasó a ${divisionDestino.nombre}`);
+      cargarAlumnos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo cambiar de división al alumno');
     }
   }
 
@@ -314,55 +375,84 @@ function Alumnos() {
         </div>
       )}
 
+      {esSecretaria && alumnosDelCiclo.length > 0 && (
+        <p className="alumnos-aviso-arrastre">
+          Arrastrá un alumno a otra división para cambiarlo de salón (solo dentro del mismo año).
+        </p>
+      )}
+
       {cargando ? (
         <p>Cargando alumnos...</p>
       ) : alumnosDelCiclo.length === 0 ? (
         <p className="alumnos-vacio">No hay alumnos matriculados en el ciclo {cicloLectivo}.</p>
       ) : (
-        divisionesDelCicloOrdenadas.map((division) => (
-          <div key={division} className="alumnos-grupo-listado">
-            <h3 className="alumnos-grupo-listado-titulo">
-              {division} ({gruposDelCiclo[division].length} alumnos)
-            </h3>
-            <table className="alumnos-tabla">
-              <thead>
-                <tr>
-                  <th>DNI</th>
-                  <th>Apellido y nombre</th>
-                  <th>Ciclo</th>
-                  {esSecretaria && <th>Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {gruposDelCiclo[division].map((alumno) => (
-                  <tr key={alumno.id}>
-                    <td>{alumno.dni}</td>
-                    <td>{alumno.apellido}, {alumno.nombre}</td>
-                    <td>{cicloLectivo}</td>
-                    {esSecretaria && (
-                      <td>
-                        {dandoDeBajaId === alumno.id ? (
-                          <span className="alumnos-promover-acciones">
-                            <input
-                              type="text"
-                              placeholder="Motivo (egreso, cambio de escuela...)"
-                              value={motivoBaja}
-                              onChange={(e) => setMotivoBaja(e.target.value)}
-                            />
-                            <button onClick={() => confirmarBaja(alumno.id)}>Confirmar baja</button>
-                            <button onClick={() => { setDandoDeBajaId(null); setMotivoBaja(''); }}>Cancelar</button>
-                          </span>
-                        ) : (
-                          <button onClick={() => { setDandoDeBajaId(alumno.id); setMotivoBaja(''); }}>Dar de baja</button>
-                        )}
-                      </td>
-                    )}
+        idsDivisionesDelCicloOrdenados.map((divisionId) => {
+          const grupo = gruposDelCiclo[divisionId];
+          return (
+            <div
+              key={divisionId}
+              className={`alumnos-grupo-listado ${grupoSobreArrastre === divisionId ? 'alumnos-grupo-listado-sobre-arrastre' : ''}`}
+              onDragOver={(e) => { if (esSecretaria) e.preventDefault(); }}
+              onDragEnter={() => { if (esSecretaria) setGrupoSobreArrastre(divisionId); }}
+              onDragLeave={(e) => {
+                if (!esSecretaria) return;
+                if (e.currentTarget.contains(e.relatedTarget)) return;
+                setGrupoSobreArrastre((actual) => (actual === divisionId ? null : actual));
+              }}
+              onDrop={(e) => { if (esSecretaria) manejarDropEnGrupo(e, divisionId); }}
+            >
+              <h3 className="alumnos-grupo-listado-titulo">
+                {grupo.division?.nombre || 'Sin división'} ({grupo.alumnos.length} alumnos)
+              </h3>
+              {grupo.alumnos.length === 0 ? (
+                <p className="alumnos-vacio">Sin alumnos todavía — se puede soltar uno acá.</p>
+              ) : (
+              <table className="alumnos-tabla">
+                <thead>
+                  <tr>
+                    <th>DNI</th>
+                    <th>Apellido y nombre</th>
+                    <th>Ciclo</th>
+                    {esSecretaria && <th>Acciones</th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))
+                </thead>
+                <tbody>
+                  {grupo.alumnos.map((alumno) => (
+                    <tr
+                      key={alumno.id}
+                      className={esSecretaria ? 'alumnos-fila-arrastrable' : undefined}
+                      draggable={esSecretaria}
+                      onDragStart={(e) => manejarDragStartAlumno(e, alumno, divisionId)}
+                    >
+                      <td>{alumno.dni}</td>
+                      <td>{alumno.apellido}, {alumno.nombre}</td>
+                      <td>{cicloLectivo}</td>
+                      {esSecretaria && (
+                        <td>
+                          {dandoDeBajaId === alumno.id ? (
+                            <span className="alumnos-promover-acciones">
+                              <input
+                                type="text"
+                                placeholder="Motivo (egreso, cambio de escuela...)"
+                                value={motivoBaja}
+                                onChange={(e) => setMotivoBaja(e.target.value)}
+                              />
+                              <button onClick={() => confirmarBaja(alumno.id)}>Confirmar baja</button>
+                              <button onClick={() => { setDandoDeBajaId(null); setMotivoBaja(''); }}>Cancelar</button>
+                            </span>
+                          ) : (
+                            <button onClick={() => { setDandoDeBajaId(alumno.id); setMotivoBaja(''); }}>Dar de baja</button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

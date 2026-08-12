@@ -311,6 +311,11 @@ function Personal() {
                     <span className={`personal-estado ${persona.activo ? 'personal-estado-activo' : 'personal-estado-inactivo'}`}>
                       {persona.activo ? 'Activo' : 'Inactivo'}
                     </span>
+                    {!persona.activo && persona.movimientos?.[0] && (
+                      <div className="personal-estado-detalle">
+                        {new Date(persona.movimientos[0].fecha).toLocaleDateString('es-AR')}: {persona.movimientos[0].motivo}
+                      </div>
+                    )}
                   </td>
                   <td>
                     {cargosDelCiclo.length === 0
