@@ -4,12 +4,50 @@ import { useCicloLectivo } from '../context/CicloLectivoContext';
 import cliente from '../api/cliente';
 import './Alumnos.css';
 import './Cargos.css';
-import { MODULOS_DOCENTE, DIAS_SEMANA, bloqueEsModuloFijo, resumenHorario as resumenBloques } from '../constants/horarios';
+import './MateriasAdeudadas.css';
+import { MODULOS_DOCENTE, DIAS_SEMANA, bloqueEsModuloFijo, resumenHorario as resumenBloques, licenciaVigenteEn } from '../constants/horarios';
 
 const ETIQUETA_TIPO_NOMBRE_CARGO = { DOCENTE: 'Docente', ADMINISTRATIVO: 'Administrativo' };
 
 function resumenHorario(cargo) {
   return resumenBloques(cargo.bloquesHorario);
+}
+
+// Badges extra junto al Estado (Vigente/Finalizado) de siempre, solo cuando
+// hay algo relacionado a una licencia para mostrar — no le agrega ruido a la
+// mayoría de las filas, que son cargos normales sin licencias en juego. Los
+// dos badges no son excluyentes: un cargo de cobertura puede a su vez tener
+// su propia licencia vigente (el suplente se enfermó mientras cubría), y
+// ahí corresponde mostrar "Suplencia" Y "En licencia" al mismo tiempo.
+function badgeLicencia(cargo) {
+  const badges = [];
+  if (cargo.origenLicenciaId) {
+    const titular = cargo.origenLicencia?.persona;
+    badges.push(
+      <span
+        key="suplencia"
+        className="materiasadeudadas-estado materiasadeudadas-estado-cca"
+        title={titular ? `Cargo temporal: cubre a ${titular.apellido}, ${titular.nombre}` : 'Cargo temporal de suplencia'}
+        style={{ marginLeft: '8px' }}
+      >
+        Suplencia
+      </span>
+    );
+  }
+  const licenciaVigente = (cargo.licencias || []).find((l) => licenciaVigenteEn(l));
+  if (licenciaVigente) {
+    badges.push(
+      <span
+        key="en-licencia"
+        className="materiasadeudadas-estado materiasadeudadas-estado-csa"
+        title={licenciaVigente.suplente ? `Cubre: ${licenciaVigente.suplente.apellido}, ${licenciaVigente.suplente.nombre}` : 'Sin suplente asignado'}
+        style={{ marginLeft: '8px' }}
+      >
+        En licencia
+      </span>
+    );
+  }
+  return badges.length > 0 ? badges : null;
 }
 
 function Cargos() {
@@ -581,7 +619,7 @@ function Cargos() {
                       <td>{cargo.division?.nombre || '-'}</td>
                       <td>{cargo.horasCatedra || '-'}</td>
                       <td className="cargos-horario-resumen">{resumenHorario(cargo)}</td>
-                      <td>{cargo.vigente ? 'Vigente' : 'Finalizado'}</td>
+                      <td>{cargo.vigente ? 'Vigente' : 'Finalizado'}{badgeLicencia(cargo)}</td>
                       <td>
                         {cargo.vigente && (
                           <span className="materiasadeudadas-acciones">

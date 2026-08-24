@@ -6,7 +6,7 @@ import './Cargos.css';
 import './MateriasAdeudadas.css';
 import './Inasistencias.css';
 import './PartesDiarios.css';
-import { diaSemanaDeFecha, duracionHoras, turnoDeHora } from '../constants/horarios';
+import { diaSemanaDeFecha, duracionHoras, turnoDeHora, licenciaVigenteEn } from '../constants/horarios';
 
 const CARGOS_LABEL = 'Cargos (sin división)';
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -25,6 +25,25 @@ function fechaCorta(fechaIso) {
 
 function redondear(n) {
   return Math.round(n * 100) / 100;
+}
+
+// Resuelve, para un cargo "real" (no generado por otra licencia), quién lo
+// ocupaba en la fecha dada: si tiene una licencia vigente esa fecha y existe
+// un cargo de cobertura todavía vigente para ella, se baja a ese cargo — y se
+// repite (por si ese cargo de cobertura a su vez tuvo su propia licencia con
+// su propio suplente, ver 2026-08-21 en CLAUDE.md). Mismo criterio que
+// Horarios.jsx, pero evaluado en una fecha puntual (Registro puede cargar un
+// día atrasado) en vez de siempre "hoy".
+function cargoActivoEn(cargoBase, todosLosCargos, fecha) {
+  let actual = cargoBase;
+  for (let profundidad = 0; profundidad < 10; profundidad++) {
+    const licenciaActiva = (actual.licencias || []).find((l) => licenciaVigenteEn(l, fecha));
+    if (!licenciaActiva) return actual;
+    const cobertura = todosLosCargos.find((c) => c.origenLicenciaId === licenciaActiva.id && c.vigente);
+    if (!cobertura) return actual;
+    actual = cobertura;
+  }
+  return actual;
 }
 
 // Para una fecha+turno, agrupa los cargos que tienen horario ese día/turno por
@@ -50,7 +69,9 @@ function agruparCargosDelDia(cargos, fecha, turno) {
   if (!dia) return { porDivision, sinDivision };
 
   const turnoEnum = turnoAEnum(turno);
-  cargos.forEach((cargo) => {
+  const cargosBase = cargos.filter((c) => !c.origenLicenciaId);
+  const cargosActivos = cargosBase.map((c) => cargoActivoEn(c, cargos, fecha));
+  cargosActivos.forEach((cargo) => {
     const bloques = (cargo.bloquesHorario || []).filter(
       (b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum
     );
@@ -95,32 +116,44 @@ function calcularEstadisticas(cargos, confirmados, partes, filtroMes, filtroTurn
     return persona.grupos[label];
   }
 
+  const cargosBaseStats = cargos.filter((c) => !c.origenLicenciaId);
+
   // Posibles por división: para cada turno confirmado, sumar las horas
-  // programadas de los cargos de esa división ese día/turno.
+  // programadas de quien estaba realmente a cargo ese día (resuelto vía
+  // cargoActivoEn) — no de todos los cargos de la división sin filtrar, que
+  // incluiría al titular Y a cada nivel de una cadena de suplencias contando
+  // la misma franja horaria una vez por cada uno.
   confirmadosFiltrados.forEach((confirmado) => {
     const dia = diaSemanaDeFecha(fechaCorta(confirmado.fecha));
     if (!dia) return;
     const turnoEnum = turnoAEnum(confirmado.turno);
-    cargos.filter((c) => c.divisionId === confirmado.divisionId).forEach((cargo) => {
-      const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum);
-      if (bloques.length === 0) return;
-      entradaGrupo(cargo).posibles += bloques.reduce((acc, b) => acc + duracionHoras(b), 0);
-    });
+    cargosBaseStats
+      .filter((c) => c.divisionId === confirmado.divisionId)
+      .map((c) => cargoActivoEn(c, cargos, confirmado.fecha))
+      .forEach((cargo) => {
+        const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum);
+        if (bloques.length === 0) return;
+        entradaGrupo(cargo).posibles += bloques.reduce((acc, b) => acc + duracionHoras(b), 0);
+      });
   });
 
   // Posibles de "Cargos" (sin división): no tienen confirmación propia, se
   // usa la unión de turnos ya confirmados por cualquier división como proxy
   // de "hubo actividad escolar ese turno" (igual que hace la referencia).
+  // Mismo criterio de resolución por fecha que arriba.
   turnosConfirmadosUnicos.forEach((clave) => {
     const [f, turnoStr] = clave.split('|');
     const dia = diaSemanaDeFecha(f);
     if (!dia) return;
     const turnoEnum = turnoAEnum(turnoStr);
-    cargos.filter((c) => !c.divisionId).forEach((cargo) => {
-      const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum);
-      if (bloques.length === 0) return;
-      entradaGrupo(cargo).posibles += bloques.reduce((acc, b) => acc + duracionHoras(b), 0);
-    });
+    cargosBaseStats
+      .filter((c) => !c.divisionId)
+      .map((c) => cargoActivoEn(c, cargos, f))
+      .forEach((cargo) => {
+        const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum);
+        if (bloques.length === 0) return;
+        entradaGrupo(cargo).posibles += bloques.reduce((acc, b) => acc + duracionHoras(b), 0);
+      });
   });
 
   let totalHorasAusentes = 0;
@@ -424,22 +457,29 @@ function PartesDiarios() {
     verificarLicencia();
   }, [formularioHist.cargoId, fechaHist, cargosDisponibles]);
 
+  // Resuelto a quién ocupaba cada cargo real en fechaHist — si no, un cargo
+  // con una cobertura activa aparecería dos veces en el selector (el titular
+  // y quien lo cubre), ambos con el mismo nombreCargo.
+  const cargosResueltosHist = cargosDisponibles
+    .filter((c) => !c.origenLicenciaId)
+    .map((c) => cargoActivoEn(c, cargosDisponibles, fechaHist));
+
   // Grado/división → materia: en Docente, la "materia" es directamente el
   // cargo (nombreCargo) de esa división, así que elegirla ya define también
   // la persona, sin un paso aparte.
   const divisionesConCargos = [...new Map(
-    cargosDisponibles.filter((c) => c.division).map((c) => [c.divisionId, c.division])
+    cargosResueltosHist.filter((c) => c.division).map((c) => [c.divisionId, c.division])
   ).values()].sort((a, b) => a.anio - b.anio || a.nombre.localeCompare(b.nombre));
 
   const materiasDeLaDivision = formularioHist.divisionId
-    ? cargosDisponibles
+    ? cargosResueltosHist
         .filter((c) => c.divisionId === parseInt(formularioHist.divisionId))
         .sort((a, b) => a.nombreCargo.localeCompare(b.nombreCargo))
     : [];
 
   const cargosAdminFiltrados = (busquedaPersona
-    ? cargosDisponibles.filter((c) => nombrePersona(c.persona).toLowerCase().includes(busquedaPersona.toLowerCase()))
-    : cargosDisponibles
+    ? cargosResueltosHist.filter((c) => nombrePersona(c.persona).toLowerCase().includes(busquedaPersona.toLowerCase()))
+    : cargosResueltosHist
   ).filter((c) => !c.divisionId);
 
   async function manejarAltaHist(evento) {
@@ -575,7 +615,9 @@ function PartesDiarios() {
                             <div key={cargo.id} className="partes-fila-persona">
                               <div className="partes-persona-info">
                                 <div className="partes-persona-nombre">{nombrePersona(cargo.persona)}</div>
-                                <div className="partes-persona-detalle">{cargo.nombreCargo} · {horas}h</div>
+                                <div className="partes-persona-detalle">
+                                  {cargo.nombreCargo} · {horas}h{cargo.origenLicenciaId && ' · suplencia'}
+                                </div>
                               </div>
                               <button
                                 type="button"
@@ -610,7 +652,9 @@ function PartesDiarios() {
                           <div key={cargo.id} className="partes-fila-persona">
                             <div className="partes-persona-info">
                               <div className="partes-persona-nombre">{nombrePersona(cargo.persona)}</div>
-                              <div className="partes-persona-detalle">{cargo.nombreCargo} · {horas}h</div>
+                              <div className="partes-persona-detalle">
+                                {cargo.nombreCargo} · {horas}h{cargo.origenLicenciaId && ' · suplencia'}
+                              </div>
                             </div>
                             <button
                               type="button"

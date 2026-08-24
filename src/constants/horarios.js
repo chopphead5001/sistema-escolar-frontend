@@ -81,6 +81,36 @@ export function duracionHoras(bloque) {
   return Math.max(0, (hFin * 60 + mFin - (hIni * 60 + mIni)) / 60);
 }
 
+// "YYYY-MM-DD" (o "YYYY-MM-DDT00:00:00.000Z") -> timestamp UTC de esa fecha a
+// medianoche, sin pasar por un Date en hora local. Las fechas de licencias
+// llegan del backend como medianoche UTC — leer solo los primeros 10
+// caracteres y reconstruir en UTC evita que new Date(...).setHours(0,0,0,0)
+// reinterprete esa medianoche UTC como el día anterior en una zona horaria
+// con offset negativo (Argentina, UTC-3) — mismo problema que diaSemanaDeFecha
+// ya evita arriba, acá aplicado a licencias en vez de bloques de horario.
+export function claveDiaUTC(fechaIso) {
+  const [anio, mes, dia] = fechaIso.slice(0, 10).split('-').map(Number);
+  return Date.UTC(anio, mes - 1, dia);
+}
+
+// ¿Está vigente la licencia en la fecha dada? Sin `fecha` compara contra hoy.
+// Usado tanto para "¿está vigente hoy?" (Cargos, Licencias) como para
+// resolver quién ocupaba un cargo en una fecha puntual del pasado al cargar
+// un parte diario atrasado (Horarios, Partes Diarios).
+export function licenciaVigenteEn(licencia, fecha) {
+  let claveFecha;
+  if (fecha) {
+    claveFecha = claveDiaUTC(fecha);
+  } else {
+    const ahora = new Date();
+    claveFecha = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  }
+  const inicio = claveDiaUTC(licencia.fechaInicio);
+  if (inicio > claveFecha) return false;
+  if (!licencia.fechaFin) return true;
+  return claveDiaUTC(licencia.fechaFin) >= claveFecha;
+}
+
 export function resumenHorario(bloques) {
   if (!bloques || bloques.length === 0) return '-';
   const ordenados = [...bloques].sort((a, b) => {

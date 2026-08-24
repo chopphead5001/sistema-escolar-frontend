@@ -1,0 +1,165 @@
+.licencias-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 22px 16px;
+  border: 1.5px dashed var(--color-acento-borde);
+  border-radius: var(--radio-borde);
+  background-color: var(--color-fondo);
+  color: var(--color-texto-secundario);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.licencias-dropzone:hover {
+  border-color: var(--color-acento);
+  color: var(--color-acento);
+}
+
+.licencias-dropzone-activa {
+  border-color: var(--color-acento);
+  background-color: var(--color-acento-tenue);
+  color: var(--color-acento);
+}
+
+.licencias-dropzone-deshabilitada {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.licencias-dropzone strong {
+  color: var(--color-acento);
+  font-weight: 600;
+}
+
+.licencias-certificado-adjunto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radio-borde);
+  border: 1px solid var(--color-acento-borde);
+  background-color: var(--color-acento-tenue);
+  font-size: 13px;
+}
+
+.licencias-certificado-nombre {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--color-texto-principal);
+}
+
+.licencias-certificado-acciones {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.licencias-certificado-acciones button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.licencias-filtros {
+  margin-bottom: 16px;
+}
+
+.licencias-filtros .alumnos-formulario-fila {
+  margin-bottom: 0;
+  align-items: flex-start;
+}
+
+.licencias-filtro-tipos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  /* Alinea la primera fila de chips con el input de al lado (mismo alto que un input). */
+  min-height: 38px;
+}
+
+.licencias-chip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-borde);
+  background-color: var(--color-fondo);
+  color: var(--color-texto-secundario);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.licencias-chip:hover {
+  border-color: var(--color-acento-borde);
+  color: var(--color-acento);
+  box-shadow: none;
+}
+
+.licencias-chip-activo {
+  border-color: var(--color-acento);
+  background-color: var(--color-acento);
+  color: white;
+}
+
+/* Necesita ganarle en especificidad a la regla global "button:hover:not(:disabled)"
+   (2 clases + 1 elemento le gana a nuestra única clase — ver la lección sobre esto
+   en la entrada del 2026-08-10 del CLAUDE.md), por eso .licencias-chip.licencias-chip-activo. */
+.licencias-chip.licencias-chip-activo:hover {
+  border-color: var(--color-acento);
+  background-color: var(--color-acento-hover);
+  color: white;
+}
+
+.licencias-suplente-masivo {
+  display: block;
+  max-width: 320px;
+  margin-bottom: 10px;
+}
+
+.licencias-suplentes-por-cargo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-borde);
+  background-color: var(--color-fondo);
+}
+
+.licencias-suplente-cargo-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.licencias-suplente-cargo-nombre {
+  font-size: 13px;
+  color: var(--color-texto-principal);
+}
+
+.licencias-suplente-cargo-fila select {
+  max-width: 240px;
+}
+
+.licencias-historial-titulo {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  color: var(--color-texto-principal);
+}
+
+.licencias-historial-subtitulo {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  color: var(--color-texto-secundario);
+}
