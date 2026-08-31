@@ -6,6 +6,19 @@ import './Alumnos.css';
 import './MateriasAdeudadas.css';
 import './Informes.css';
 
+// Mismo criterio de ponderación que usa Inasistencias.jsx (Resumen): 1 día
+// completo, 0.25 llegada tarde, 0.5 ausente ed. física — se repite acá porque
+// no hay un módulo compartido de utilidades en este proyecto.
+function pesoEvento(evento) {
+  if (evento.ausenteTodoElDia) return 1;
+  let peso = 0;
+  if (evento.llegadaTarde) peso += 0.25;
+  if (evento.ausenteEducFisica) peso += 0.5;
+  return peso;
+}
+
+const etiquetaModalidadFicha = { INTENSIFICA: 'Intensifica', RECURSA: 'Recursa', PENDIENTE: 'Pendiente (1° vez)' };
+
 function Informes() {
   const { usuario } = useAuth();
   const { cicloLectivo } = useCicloLectivo();
@@ -18,20 +31,28 @@ function Informes() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
+  const [alumnos, setAlumnos] = useState([]);
+  const [busquedaFicha, setBusquedaFicha] = useState('');
+  const [alumnoFichaId, setAlumnoFichaId] = useState(null);
+  const [cargandoFicha, setCargandoFicha] = useState(false);
+  const [ficha, setFicha] = useState(null);
+
   async function cargarDatos() {
     setCargando(true);
     setError('');
     try {
-      const [respuestaGeneral, respuestaPorDivision, respuestaPersonal, respuestaBoletines] = await Promise.all([
+      const [respuestaGeneral, respuestaPorDivision, respuestaPersonal, respuestaBoletines, respuestaAlumnos] = await Promise.all([
         cliente.get('/informes/general', { params: { cicloLectivo } }),
         cliente.get('/informes/por-division', { params: { cicloLectivo } }),
         cliente.get('/informes/personal', { params: { cicloLectivo } }),
-        cliente.get('/informes/boletines', { params: { cicloLectivo } })
+        cliente.get('/informes/boletines', { params: { cicloLectivo } }),
+        cliente.get('/alumnos')
       ]);
       setGeneral(respuestaGeneral.data);
       setPorDivision(respuestaPorDivision.data);
       setPersonal(respuestaPersonal.data);
       setBoletines(respuestaBoletines.data);
+      setAlumnos(respuestaAlumnos.data);
     } catch (err) {
       setError('No se pudo cargar la información de informes');
     } finally {
@@ -42,6 +63,59 @@ function Informes() {
   useEffect(() => {
     if (esSecretaria) cargarDatos();
   }, [cicloLectivo, esSecretaria]);
+
+  async function abrirFicha(alumnoId) {
+    setAlumnoFichaId(alumnoId);
+    setCargandoFicha(true);
+    setFicha(null);
+    try {
+      const [respuestaCalificaciones, respuestaAdeudadas, respuestaInasistencias] = await Promise.all([
+        cliente.get('/boletines/calificaciones', { params: { alumnoId, cicloLectivo } }),
+        cliente.get('/materias-adeudadas', { params: { alumnoId } }),
+        cliente.get('/inasistencias', { params: { alumnoId, cicloLectivo } })
+      ]);
+      setFicha({
+        calificaciones: respuestaCalificaciones.data,
+        adeudadas: respuestaAdeudadas.data,
+        eventos: respuestaInasistencias.data
+      });
+    } catch (err) {
+      setError('No se pudo cargar la ficha del alumno');
+    } finally {
+      setCargandoFicha(false);
+    }
+  }
+
+  function cerrarFicha() {
+    setAlumnoFichaId(null);
+    setFicha(null);
+    setBusquedaFicha('');
+  }
+
+  const alumnoFicha = alumnos.find((a) => a.id === alumnoFichaId);
+  const matriculaFicha = alumnoFicha?.matriculas?.find((m) => m.cicloLectivo === cicloLectivo && m.activa);
+
+  const alumnosFiltradosFicha = busquedaFicha.trim()
+    ? alumnos.filter((a) => `${a.apellido} ${a.nombre}`.toLowerCase().includes(busquedaFicha.trim().toLowerCase()))
+    : [];
+
+  const calificacionesPorMateria = {};
+  if (ficha) {
+    for (const c of ficha.calificaciones) {
+      if (!calificacionesPorMateria[c.materiaId]) {
+        calificacionesPorMateria[c.materiaId] = { materia: c.materia.nombre, c1: null, c2: null, condicion: c.condicion };
+      }
+      if (c.cuatrimestre === 1) calificacionesPorMateria[c.materiaId].c1 = c.notaCuatrimestre;
+      if (c.cuatrimestre === 2) calificacionesPorMateria[c.materiaId].c2 = c.notaCuatrimestre;
+    }
+  }
+  const filasCalificaciones = Object.values(calificacionesPorMateria).sort((a, b) => a.materia.localeCompare(b.materia));
+
+  const adeudadasActivasFicha = ficha?.adeudadas.filter((d) => d.estado === 'CCA' || d.estado === 'CSA') || [];
+  const adeudadasHistorialFicha = ficha?.adeudadas.filter((d) => d.estado === 'APROBADA' || d.estado === 'TRASLADADA') || [];
+
+  const totalInasistenciasFicha = ficha ? ficha.eventos.reduce((acc, e) => acc + pesoEvento(e), 0) : 0;
+  const justificadasFicha = ficha ? ficha.eventos.reduce((acc, e) => acc + (e.justificada ? pesoEvento(e) : 0), 0) : 0;
 
   if (!esSecretaria) {
     return (
@@ -215,6 +289,181 @@ function Informes() {
                 <li key={d.divisionId}>{d.division}: {d.cantidad}</li>
               ))}
             </ul>
+          </section>
+
+          <section className="informes-seccion">
+            <h2>Ficha del alumno</h2>
+            <p className="informes-subtitulo">
+              Boletín, materias adeudadas e inasistencias del ciclo {cicloLectivo}, todo junto.
+            </p>
+
+            {!alumnoFichaId && (
+              <div className="alumnos-formulario">
+                <label>Buscar alumno</label>
+                <input
+                  type="text"
+                  placeholder="Buscar por apellido o nombre..."
+                  value={busquedaFicha}
+                  onChange={(e) => setBusquedaFicha(e.target.value)}
+                />
+                {alumnosFiltradosFicha.length > 0 && (
+                  <ul className="informes-lista-simple">
+                    {alumnosFiltradosFicha.slice(0, 10).map((a) => (
+                      <li key={a.id}>
+                        <button onClick={() => abrirFicha(a.id)}>{a.apellido}, {a.nombre}</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {alumnoFichaId && (
+              <div>
+                <div className="alumnos-encabezado">
+                  <h3>
+                    {alumnoFicha ? `${alumnoFicha.apellido}, ${alumnoFicha.nombre}` : '...'}
+                    {matriculaFicha && ` — ${matriculaFicha.division.nombre}`}
+                  </h3>
+                  <button onClick={cerrarFicha}>Cerrar ficha</button>
+                </div>
+
+                {cargandoFicha ? (
+                  <p>Cargando ficha...</p>
+                ) : ficha && (
+                  <>
+                    <h4>Boletín</h4>
+                    {filasCalificaciones.length === 0 ? (
+                      <p className="alumnos-vacio">No hay calificaciones cargadas este ciclo.</p>
+                    ) : (
+                      <table className="alumnos-tabla">
+                        <thead>
+                          <tr>
+                            <th>Materia</th>
+                            <th>Condición</th>
+                            <th>1° cuatrimestre</th>
+                            <th>2° cuatrimestre</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filasCalificaciones.map((f) => (
+                            <tr key={f.materia}>
+                              <td>{f.materia}</td>
+                              <td>{f.condicion || '—'}</td>
+                              <td>{f.c1 ?? '—'}</td>
+                              <td>{f.c2 ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <h4>Materias adeudadas activas</h4>
+                    {adeudadasActivasFicha.length === 0 ? (
+                      <p className="alumnos-vacio">No tiene materias adeudadas activas.</p>
+                    ) : (
+                      <table className="alumnos-tabla">
+                        <thead>
+                          <tr>
+                            <th>Materia</th>
+                            <th>Origen</th>
+                            <th>Ciclo actual</th>
+                            <th>Modalidad</th>
+                            <th>Profesor a cargo</th>
+                            <th>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adeudadasActivasFicha.map((d) => (
+                            <tr key={d.id}>
+                              <td>{d.materia.nombre}</td>
+                              <td>{d.cicloOrigen} — {d.divisionOrigen?.nombre || '—'}</td>
+                              <td>{d.cicloActual}</td>
+                              <td>{etiquetaModalidadFicha[d.modalidad]}</td>
+                              <td>
+                                {d.cargoResponsable
+                                  ? `${d.cargoResponsable.persona.apellido}, ${d.cargoResponsable.persona.nombre}`
+                                  : '—'}
+                              </td>
+                              <td>
+                                <span className={`materiasadeudadas-estado materiasadeudadas-estado-${d.estado.toLowerCase()}`}>
+                                  {d.estado}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {adeudadasHistorialFicha.length > 0 && (
+                      <>
+                        <h4>Historial de materias adeudadas</h4>
+                        <table className="alumnos-tabla">
+                          <thead>
+                            <tr>
+                              <th>Materia</th>
+                              <th>Origen</th>
+                              <th>Ciclo actual</th>
+                              <th>Modalidad</th>
+                              <th>Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {adeudadasHistorialFicha.map((d) => (
+                              <tr key={d.id}>
+                                <td>{d.materia.nombre}</td>
+                                <td>{d.cicloOrigen} — {d.divisionOrigen?.nombre || '—'}</td>
+                                <td>{d.cicloActual}</td>
+                                <td>{etiquetaModalidadFicha[d.modalidad]}</td>
+                                <td>
+                                  <span className={`materiasadeudadas-estado materiasadeudadas-estado-${d.estado.toLowerCase()}`}>
+                                    {d.estado}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+
+                    <h4>Inasistencias</h4>
+                    <p className="informes-subtitulo">
+                      Total: {Math.round(totalInasistenciasFicha * 100) / 100} — Justificadas: {Math.round(justificadasFicha * 100) / 100} —
+                      {' '}Sin justificar: {Math.round((totalInasistenciasFicha - justificadasFicha) * 100) / 100}
+                    </p>
+                    {ficha.eventos.length === 0 ? (
+                      <p className="alumnos-vacio">No tiene eventos de inasistencia cargados este ciclo.</p>
+                    ) : (
+                      <table className="alumnos-tabla">
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Detalle</th>
+                            <th>Justificada</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...ficha.eventos].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((e) => (
+                            <tr key={e.id}>
+                              <td>{e.fecha.slice(0, 10)}</td>
+                              <td>
+                                {e.ausenteTodoElDia ? 'Ausente (día completo)' : [
+                                  e.llegadaTarde && 'Llegada tarde',
+                                  e.ausenteEducFisica && 'Ausente Ed. Física'
+                                ].filter(Boolean).join(', ') || '—'}
+                              </td>
+                              <td>{e.justificada ? 'Sí' : 'No'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </section>
         </>
       )}

@@ -61,6 +61,7 @@ function Cargos() {
   const [cargos, setCargos] = useState([]);
   const [divisiones, setDivisiones] = useState([]);
   const [nombresCargo, setNombresCargo] = useState([]);
+  const [materias, setMaterias] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [mensajeExito, setMensajeExito] = useState('');
@@ -77,6 +78,7 @@ function Cargos() {
   const [mostrarFormularioNombreCargo, setMostrarFormularioNombreCargo] = useState(false);
   const [nombreCargoNuevo, setNombreCargoNuevo] = useState('');
   const [tipoNombreCargoNuevo, setTipoNombreCargoNuevo] = useState('DOCENTE');
+  const [materiaIdNombreCargoNuevo, setMateriaIdNombreCargoNuevo] = useState('');
   const [nombreCargoEnEdicionId, setNombreCargoEnEdicionId] = useState(null);
   const [formularioNombreCargoEdicion, setFormularioNombreCargoEdicion] = useState(null);
 
@@ -87,16 +89,18 @@ function Cargos() {
     setCargando(true);
     setError('');
     try {
-      const [respuestaPersonal, respuestaCargos, respuestaDivisiones, respuestaNombres] = await Promise.all([
+      const [respuestaPersonal, respuestaCargos, respuestaDivisiones, respuestaNombres, respuestaMaterias] = await Promise.all([
         cliente.get('/personal'),
         cliente.get('/cargos', { params: { cicloLectivo } }),
         cliente.get('/divisiones'),
-        cliente.get('/cargos/nombres-cargo')
+        cliente.get('/cargos/nombres-cargo'),
+        cliente.get('/boletines/materias')
       ]);
       setPersonas(respuestaPersonal.data);
       setCargos(respuestaCargos.data);
       setDivisiones(respuestaDivisiones.data);
       setNombresCargo(respuestaNombres.data);
+      setMaterias(respuestaMaterias.data);
     } catch (err) {
       setError('No se pudo cargar la información de cargos');
     } finally {
@@ -270,9 +274,14 @@ function Cargos() {
   async function manejarAltaNombreCargo(evento) {
     evento.preventDefault();
     try {
-      await cliente.post('/cargos/nombres-cargo', { nombre: nombreCargoNuevo, tipo: tipoNombreCargoNuevo });
+      await cliente.post('/cargos/nombres-cargo', {
+        nombre: nombreCargoNuevo,
+        tipo: tipoNombreCargoNuevo,
+        materiaId: tipoNombreCargoNuevo === 'DOCENTE' && materiaIdNombreCargoNuevo ? parseInt(materiaIdNombreCargoNuevo) : null
+      });
       setNombreCargoNuevo('');
       setTipoNombreCargoNuevo('DOCENTE');
+      setMateriaIdNombreCargoNuevo('');
       setMostrarFormularioNombreCargo(false);
       cargarDatos();
     } catch (err) {
@@ -282,7 +291,7 @@ function Cargos() {
 
   function abrirEdicionNombreCargo(nc) {
     setNombreCargoEnEdicionId(nc.id);
-    setFormularioNombreCargoEdicion({ nombre: nc.nombre, tipo: nc.tipo || 'DOCENTE' });
+    setFormularioNombreCargoEdicion({ nombre: nc.nombre, tipo: nc.tipo || 'DOCENTE', materiaId: nc.materiaId || '' });
     setMensajeExito('');
     setError('');
   }
@@ -295,7 +304,12 @@ function Cargos() {
   async function guardarEdicionNombreCargo(evento) {
     evento.preventDefault();
     try {
-      await cliente.put(`/cargos/nombres-cargo/${nombreCargoEnEdicionId}`, formularioNombreCargoEdicion);
+      await cliente.put(`/cargos/nombres-cargo/${nombreCargoEnEdicionId}`, {
+        nombre: formularioNombreCargoEdicion.nombre,
+        tipo: formularioNombreCargoEdicion.tipo,
+        materiaId: formularioNombreCargoEdicion.tipo === 'DOCENTE' && formularioNombreCargoEdicion.materiaId
+          ? parseInt(formularioNombreCargoEdicion.materiaId) : null
+      });
       setMensajeExito('Nombre de cargo actualizado correctamente');
       cancelarEdicionNombreCargo();
       cargarDatos();
@@ -368,7 +382,22 @@ function Cargos() {
                     <option value="ADMINISTRATIVO">Administrativo</option>
                   </select>
                 </div>
+                {tipoNombreCargoNuevo === 'DOCENTE' && (
+                  <div>
+                    <label>Materia que dicta (opcional)</label>
+                    <select value={materiaIdNombreCargoNuevo} onChange={(e) => setMateriaIdNombreCargoNuevo(e.target.value)}>
+                      <option value="">Sin vincular</option>
+                      {[...materias].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((m) => (
+                        <option key={m.id} value={m.id}>{m.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
+              <p className="materiasadeudadas-confirmar-texto">
+                Vincular la materia permite elegir a esta persona como profesor a cargo al recursar/intensificar
+                esa materia, en Materias Adeudadas.
+              </p>
               <button type="submit">Guardar nombre de cargo</button>
             </form>
           )}
@@ -381,6 +410,7 @@ function Cargos() {
                 <tr>
                   <th>Nombre</th>
                   <th>Tipo</th>
+                  <th>Materia vinculada</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -388,7 +418,7 @@ function Cargos() {
                 {[...nombresCargo].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((nc) => (
                   nombreCargoEnEdicionId === nc.id ? (
                     <tr key={nc.id}>
-                      <td colSpan={3}>
+                      <td colSpan={4}>
                         <form onSubmit={guardarEdicionNombreCargo} className="alumnos-formulario">
                           <div className="alumnos-formulario-fila">
                             <div>
@@ -410,6 +440,20 @@ function Cargos() {
                                 <option value="ADMINISTRATIVO">Administrativo</option>
                               </select>
                             </div>
+                            {formularioNombreCargoEdicion.tipo === 'DOCENTE' && (
+                              <div>
+                                <label>Materia que dicta (opcional)</label>
+                                <select
+                                  value={formularioNombreCargoEdicion.materiaId}
+                                  onChange={(e) => setFormularioNombreCargoEdicion({ ...formularioNombreCargoEdicion, materiaId: e.target.value })}
+                                >
+                                  <option value="">Sin vincular</option>
+                                  {[...materias].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((m) => (
+                                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                           </div>
                           <span className="alumnos-promover-acciones">
                             <button type="submit">Guardar cambios</button>
@@ -422,6 +466,7 @@ function Cargos() {
                     <tr key={nc.id}>
                       <td>{nc.nombre}</td>
                       <td>{nc.tipo ? ETIQUETA_TIPO_NOMBRE_CARGO[nc.tipo] : <em>Sin definir</em>}</td>
+                      <td>{nc.materia?.nombre || '—'}</td>
                       <td>
                         <span className="materiasadeudadas-acciones">
                           <button onClick={() => abrirEdicionNombreCargo(nc)}>Editar</button>
