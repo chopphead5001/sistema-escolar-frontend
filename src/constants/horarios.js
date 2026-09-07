@@ -48,18 +48,57 @@ export function bloqueEsContraturno(bloque, turnoDivision) {
   return turnoDeHora(bloque.horaInicio) !== turnoDivision;
 }
 
-// Paleta fija de 8 colores para distinguir materias/cargos de un vistazo en la
-// grilla. La asignación es por hash del nombre del cargo (no por posición en una
-// lista), así una materia siempre cae en el mismo color sin importar qué otras
-// materias estén cargadas ese día.
-const CANTIDAD_COLORES_MATERIA = 8;
+// Paleta fija de 24 colores para distinguir materias/cargos de un vistazo en
+// la grilla — 24 porque el año con más materias distintas hoy (5to) tiene 21.
+const CANTIDAD_COLORES_MATERIA = 24;
 
+// Asignación de respaldo por hash del nombre del cargo — se usa donde no hay
+// un año contra el cual desambiguar (la tabla de Cargos administrativos, que
+// es una lista plana, no una grilla comparando varias materias a la vez).
 export function colorMateria(nombreCargo) {
   let hash = 0;
   for (let i = 0; i < nombreCargo.length; i++) {
     hash = (hash * 31 + nombreCargo.charCodeAt(i)) >>> 0;
   }
   return `horarios-chip-materia-${(hash % CANTIDAD_COLORES_MATERIA) + 1}`;
+}
+
+// Mapa de colores donde cada materia tiene un color único DENTRO de su año
+// (las divisiones de un mismo año suelen compartir varias materias, y ahí un
+// choque de color confunde) pero puede repetirse entre años distintos, ya que
+// nunca se muestran uno al lado del otro. Se arma una sola vez por carga de
+// la página con todos los cargos, agrupando por `division.anio` y asignando
+// colores en el orden en que aparece cada nombre de cargo (alfabético, para
+// que la asignación sea estable entre renders) — si un año llegara a tener
+// más de 16 materias distintas, recién ahí se repiten colores dentro del
+// mismo año (se vuelve al comportamiento anterior solo para ese excedente).
+export function construirMapaColoresPorAnio(cargos) {
+  const nombresPorAnio = new Map(); // anio -> Set(nombreCargo)
+  for (const cargo of cargos) {
+    const anio = cargo.division?.anio;
+    if (anio === undefined || anio === null) continue;
+    if (!nombresPorAnio.has(anio)) nombresPorAnio.set(anio, new Set());
+    nombresPorAnio.get(anio).add(cargo.nombreCargo);
+  }
+  const mapa = new Map(); // `${anio}|${nombreCargo}` -> clase de color
+  for (const [anio, nombres] of nombresPorAnio.entries()) {
+    const ordenados = [...nombres].sort((a, b) => a.localeCompare(b));
+    ordenados.forEach((nombreCargo, indice) => {
+      mapa.set(`${anio}|${nombreCargo}`, `horarios-chip-materia-${(indice % CANTIDAD_COLORES_MATERIA) + 1}`);
+    });
+  }
+  return mapa;
+}
+
+// Color de un cargo dentro de la grilla de una división: único entre las
+// materias de su mismo año si `mapaColores`/`anio` están disponibles, si no
+// cae al hash global (ver colorMateria).
+export function colorMateriaEnAnio(mapaColores, anio, nombreCargo) {
+  if (mapaColores && anio !== undefined && anio !== null) {
+    const clase = mapaColores.get(`${anio}|${nombreCargo}`);
+    if (clase) return clase;
+  }
+  return colorMateria(nombreCargo);
 }
 
 // Día de semana (valor de DIAS_SEMANA) para una fecha "YYYY-MM-DD", o null si

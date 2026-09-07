@@ -6,7 +6,7 @@ import './Alumnos.css';
 import './Cargos.css';
 import './MateriasAdeudadas.css';
 import './Horarios.css';
-import { MODULOS_DOCENTE, DIAS_SEMANA, ETIQUETA_TURNO, bloqueEsModuloFijo, bloqueEsContraturno, resumenHorario, colorMateria, licenciaVigenteEn } from '../constants/horarios';
+import { MODULOS_DOCENTE, DIAS_SEMANA, ETIQUETA_TURNO, bloqueEsModuloFijo, bloqueEsContraturno, resumenHorario, colorMateria, colorMateriaEnAnio, construirMapaColoresPorAnio, licenciaVigenteEn } from '../constants/horarios';
 
 // Resuelve, para un cargo "real" (no generado por otra licencia), quién lo
 // ocupa en este momento: si tiene una licencia vigente hoy y existe un cargo
@@ -100,7 +100,7 @@ function filasSueltasDe(listaCargos, turnoDivision) {
     .sort((a, b) => a.cargo.nombreCargo.localeCompare(b.cargo.nombreCargo));
 }
 
-function GrillaDivision({ division, cargos, onSoltar, bloqueada }) {
+function GrillaDivision({ division, cargos, onSoltar, bloqueada, mapaColores }) {
   const cargosBase = cargos.filter((c) => c.vigente && c.divisionId === division.id && !c.origenLicenciaId);
   const listaCargos = cargosBase.map((c) => cargoActivoAhora(c, cargos));
   const modulosConDatos = modulosConDatosDe(listaCargos, division.turno);
@@ -191,7 +191,7 @@ function GrillaDivision({ division, cargos, onSoltar, bloqueada }) {
                         : cargosCelda.map((c) => (
                             <span
                               key={c.id}
-                              className={`horarios-chip ${colorMateria(c.nombreCargo)}${esSobreArrastre ? ' horarios-chip-intercambio' : ''}`}
+                              className={`horarios-chip ${colorMateriaEnAnio(mapaColores, division.anio, c.nombreCargo)}${esSobreArrastre ? ' horarios-chip-intercambio' : ''}`}
                               draggable
                               onDragStart={(e) => manejarDragStart(e, c, d.valor, modulo)}
                               title={c.origenLicenciaId
@@ -215,7 +215,7 @@ function GrillaDivision({ division, cargos, onSoltar, bloqueada }) {
                   return (
                     <td key={d.valor}>
                       {bloque ? (
-                        <span className={`horarios-chip ${colorMateria(cargo.nombreCargo)}`} title="Contraturno">
+                        <span className={`horarios-chip ${colorMateriaEnAnio(mapaColores, division.anio, cargo.nombreCargo)}`} title="Contraturno">
                           {cargo.nombreCargo} ({cargo.persona.apellido}){cargo.origenLicenciaId && ' · suplencia'}
                           <span className="horarios-chip-horario">Contraturno {bloque.horaInicio}-{bloque.horaFin}</span>
                         </span>
@@ -407,6 +407,8 @@ function Horarios() {
     .filter((d) => d.activa)
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+  const mapaColores = construirMapaColoresPorAnio(cargos);
+
   const divisionSeleccionada = vista && vista !== 'CARGOS'
     ? divisionesOrdenadas.find((d) => d.id === parseInt(vista))
     : null;
@@ -448,11 +450,11 @@ function Horarios() {
       ) : vista === 'CARGOS' ? (
         <TablaCargosAdministrativos cargos={cargos} />
       ) : divisionSeleccionada ? (
-        <GrillaDivision division={divisionSeleccionada} cargos={cargos} onSoltar={manejarSoltar} bloqueada={moviendoHorario} />
+        <GrillaDivision division={divisionSeleccionada} cargos={cargos} onSoltar={manejarSoltar} bloqueada={moviendoHorario} mapaColores={mapaColores} />
       ) : (
         <>
           {divisionesOrdenadas.map((division) => (
-            <GrillaDivision key={division.id} division={division} cargos={cargos} onSoltar={manejarSoltar} bloqueada={moviendoHorario} />
+            <GrillaDivision key={division.id} division={division} cargos={cargos} onSoltar={manejarSoltar} bloqueada={moviendoHorario} mapaColores={mapaColores} />
           ))}
           <TablaCargosAdministrativos cargos={cargos} />
         </>

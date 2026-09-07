@@ -28,6 +28,9 @@ function Alumnos() {
   const [dandoDeBajaId, setDandoDeBajaId] = useState(null);
   const [motivoBaja, setMotivoBaja] = useState('');
 
+  const [editandoId, setEditandoId] = useState(null);
+  const [formularioEdicion, setFormularioEdicion] = useState(null);
+
   const [grupoSobreArrastre, setGrupoSobreArrastre] = useState(null);
 
   async function cargarAlumnos() {
@@ -175,6 +178,34 @@ function Alumnos() {
       }
     } finally {
       cargarAlumnos();
+    }
+  }
+
+  function abrirEdicion(alumno) {
+    setEditandoId(alumno.id);
+    setFormularioEdicion({ dni: alumno.dni, nombre: alumno.nombre, apellido: alumno.apellido });
+    setMensajeExito('');
+    setError('');
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setFormularioEdicion(null);
+  }
+
+  async function guardarEdicion(evento) {
+    evento.preventDefault();
+    setGuardando(true);
+    setError('');
+    try {
+      await cliente.put(`/alumnos/${editandoId}`, formularioEdicion);
+      setMensajeExito('Datos del alumno actualizados correctamente');
+      cancelarEdicion();
+      cargarAlumnos();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudieron guardar los cambios');
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -417,7 +448,53 @@ function Alumnos() {
                   </tr>
                 </thead>
                 <tbody>
-                  {grupo.alumnos.map((alumno) => (
+                  {grupo.alumnos.map((alumno) => {
+                    if (editandoId === alumno.id) {
+                      return (
+                        <tr key={alumno.id}>
+                          <td colSpan={esSecretaria ? 4 : 3}>
+                            <form onSubmit={guardarEdicion} className="alumnos-formulario">
+                              <div className="alumnos-formulario-fila">
+                                <div>
+                                  <label>DNI</label>
+                                  <input
+                                    type="text"
+                                    value={formularioEdicion.dni}
+                                    onChange={(e) => setFormularioEdicion({ ...formularioEdicion, dni: e.target.value })}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label>Nombre</label>
+                                  <input
+                                    type="text"
+                                    value={formularioEdicion.nombre}
+                                    onChange={(e) => setFormularioEdicion({ ...formularioEdicion, nombre: e.target.value })}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <label>Apellido</label>
+                                  <input
+                                    type="text"
+                                    value={formularioEdicion.apellido}
+                                    onChange={(e) => setFormularioEdicion({ ...formularioEdicion, apellido: e.target.value })}
+                                    required
+                                  />
+                                </div>
+                              </div>
+                              <span className="alumnos-promover-acciones">
+                                <button type="submit" disabled={guardando}>
+                                  {guardando ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                                <button type="button" onClick={cancelarEdicion}>Cancelar</button>
+                              </span>
+                            </form>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
                     <tr
                       key={alumno.id}
                       className={esSecretaria ? 'alumnos-fila-arrastrable' : undefined}
@@ -441,12 +518,16 @@ function Alumnos() {
                               <button onClick={() => { setDandoDeBajaId(null); setMotivoBaja(''); }}>Cancelar</button>
                             </span>
                           ) : (
-                            <button onClick={() => { setDandoDeBajaId(alumno.id); setMotivoBaja(''); }}>Dar de baja</button>
+                            <span className="alumnos-promover-acciones">
+                              <button onClick={() => abrirEdicion(alumno)}>Editar</button>
+                              <button onClick={() => { setDandoDeBajaId(alumno.id); setMotivoBaja(''); }}>Dar de baja</button>
+                            </span>
                           )}
                         </td>
                       )}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
               )}

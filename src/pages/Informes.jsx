@@ -92,8 +92,12 @@ function Informes() {
     setBusquedaFicha('');
   }
 
+  function matriculaActivaDe(alumno) {
+    return alumno?.matriculas?.find((m) => m.cicloLectivo === cicloLectivo && m.activa);
+  }
+
   const alumnoFicha = alumnos.find((a) => a.id === alumnoFichaId);
-  const matriculaFicha = alumnoFicha?.matriculas?.find((m) => m.cicloLectivo === cicloLectivo && m.activa);
+  const matriculaFicha = matriculaActivaDe(alumnoFicha);
 
   const alumnosFiltradosFicha = busquedaFicha.trim()
     ? alumnos.filter((a) => `${a.apellido} ${a.nombre}`.toLowerCase().includes(busquedaFicha.trim().toLowerCase()))
@@ -310,7 +314,10 @@ function Informes() {
                   <ul className="informes-lista-simple">
                     {alumnosFiltradosFicha.slice(0, 10).map((a) => (
                       <li key={a.id}>
-                        <button onClick={() => abrirFicha(a.id)}>{a.apellido}, {a.nombre}</button>
+                        <button onClick={() => abrirFicha(a.id)}>
+                          {a.apellido}, {a.nombre}
+                          {matriculaActivaDe(a) ? ` — ${matriculaActivaDe(a).division.nombre}` : ' — sin matrícula este ciclo'}
+                        </button>
                       </li>
                     ))}
                   </ul>

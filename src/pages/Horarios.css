@@ -83,9 +83,11 @@
   white-space: nowrap;
 }
 
-/* Colores por materia: orden fijo, asignado por hash del nombre del cargo
-   (ver colorMateria en constants/horarios.js) para que cada materia mantenga
-   siempre el mismo color sin importar qué otras estén cargadas. */
+/* Colores por materia: 16 clases fijas. Dentro de la grilla de un año se
+   asignan sin repetir (ver construirMapaColoresPorAnio en
+   constants/horarios.js); pueden repetirse entre años distintos, y la tabla
+   de Cargos administrativos (lista plana, no grilla) usa el hash de respaldo
+   colorMateria(). */
 .horarios-chip.horarios-chip-materia-1 { background-color: #E8F1FB; border-color: #C9DCF3; color: #2A78D6; }
 .horarios-chip.horarios-chip-materia-2 { background-color: #FBEAE0; border-color: #F3CBB3; color: #C8602C; }
 .horarios-chip.horarios-chip-materia-3 { background-color: #E1F5EC; border-color: #B9E7D4; color: #12946A; }
@@ -94,6 +96,22 @@
 .horarios-chip.horarios-chip-materia-6 { background-color: #E3F3E3; border-color: #BEE0BE; color: #008300; }
 .horarios-chip.horarios-chip-materia-7 { background-color: #EBE8F8; border-color: #CEC6EE; color: #4A3AA7; }
 .horarios-chip.horarios-chip-materia-8 { background-color: #FBE5E5; border-color: #F2BFBF; color: #CF3F3E; }
+.horarios-chip.horarios-chip-materia-9 { background-color: #DFF7F3; border-color: #B6E9DF; color: #0E7C6B; }
+.horarios-chip.horarios-chip-materia-10 { background-color: #F3F6D9; border-color: #E1E9A8; color: #6B7A1E; }
+.horarios-chip.horarios-chip-materia-11 { background-color: #FBE4F5; border-color: #F0BEE3; color: #A22C90; }
+.horarios-chip.horarios-chip-materia-12 { background-color: #F3E8DE; border-color: #E2C7AE; color: #8A5A2B; }
+.horarios-chip.horarios-chip-materia-13 { background-color: #E6E6FB; border-color: #C8C7F0; color: #4338A8; }
+.horarios-chip.horarios-chip-materia-14 { background-color: #FFE8E0; border-color: #FBC5B2; color: #D9542D; }
+.horarios-chip.horarios-chip-materia-15 { background-color: #E7ECF3; border-color: #C7D2E3; color: #3C5A7A; }
+.horarios-chip.horarios-chip-materia-16 { background-color: #EEF6D8; border-color: #D7E8A0; color: #5C7A1B; }
+.horarios-chip.horarios-chip-materia-17 { background-color: #E2F0E4; border-color: #BFDDC4; color: #2F6B3A; }
+.horarios-chip.horarios-chip-materia-18 { background-color: #F5E6EA; border-color: #E3C0C9; color: #8A3D52; }
+.horarios-chip.horarios-chip-materia-19 { background-color: #E0F0FA; border-color: #B8DCF2; color: #1F6FA0; }
+.horarios-chip.horarios-chip-materia-20 { background-color: #F7EFD2; border-color: #E9D68F; color: #8A6D14; }
+.horarios-chip.horarios-chip-materia-21 { background-color: #F0E6F7; border-color: #D9BFEE; color: #6B3C96; }
+.horarios-chip.horarios-chip-materia-22 { background-color: #DCF3EE; border-color: #ABE3D5; color: #147A63; }
+.horarios-chip.horarios-chip-materia-23 { background-color: #F8E2D8; border-color: #EFBDA6; color: #B5502A; }
+.horarios-chip.horarios-chip-materia-24 { background-color: #E5EAF0; border-color: #C2CEDD; color: #435A78; }
 
 .horarios-celda-sobre-arrastre {
   background-color: var(--color-acento-tenue);

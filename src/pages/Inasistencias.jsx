@@ -26,6 +26,13 @@ function formatearFecha(fechaIso) {
   return fechaIso.slice(0, 10);
 }
 
+const MESES = [
+  { mes: 3, etiqueta: 'Marzo' }, { mes: 4, etiqueta: 'Abril' }, { mes: 5, etiqueta: 'Mayo' },
+  { mes: 6, etiqueta: 'Junio' }, { mes: 7, etiqueta: 'Julio' }, { mes: 8, etiqueta: 'Agosto' },
+  { mes: 9, etiqueta: 'Septiembre' }, { mes: 10, etiqueta: 'Octubre' }, { mes: 11, etiqueta: 'Noviembre' },
+  { mes: 12, etiqueta: 'Diciembre' }
+];
+
 function Inasistencias() {
   const { cicloLectivo } = useCicloLectivo();
 
@@ -53,10 +60,24 @@ function Inasistencias() {
   const [busquedaAlumnoResumen, setBusquedaAlumnoResumen] = useState('');
   const [eventosResumen, setEventosResumen] = useState([]);
   const [cargandoResumen, setCargandoResumen] = useState(false);
+  // Mientras no haya Partes Diarios reales cargados día a día para un alumno,
+  // el Resumen usa como Total el último acumulado que sí existe en "Totales
+  // por mes" (no hay desglose Justificadas/Sin justificar en ese dato, así
+  // que esas columnas muestran "—" en ese caso — ver ultimoMesConDatoDe).
+  const [totalesMensualResumen, setTotalesMensualResumen] = useState([]); // [{ alumnoId, mes, total }]
 
   const [rango, setRango] = useState({ fechaInicio: '', fechaFin: '', motivo: '' });
   const [eventoEnEdicionId, setEventoEnEdicionId] = useState(null);
   const [motivoEdicion, setMotivoEdicion] = useState('');
+
+  // ===== Totales por mes (carga de un acumulado ya conocido, sin detalle día a
+  // día — para volcar datos históricos que ya vienen así de otra planilla) =====
+  const [divisionMensual, setDivisionMensual] = useState('');
+  const [alumnosMensual, setAlumnosMensual] = useState([]);
+  const [totalesMensual, setTotalesMensual] = useState({}); // { "alumnoId-mes": total }
+  const [edicionesMensual, setEdicionesMensual] = useState({}); // igual forma, solo lo tocado sin guardar
+  const [cargandoMensual, setCargandoMensual] = useState(false);
+  const [guardandoMensual, setGuardandoMensual] = useState(false);
 
   async function cargarAlumnos() {
     setCargandoAlumnos(true);
@@ -132,10 +153,39 @@ function Inasistencias() {
     }
   }
 
+  function divisionIdDeAlumno(alumno) {
+    const matricula = alumno?.matriculas?.find((m) => m.cicloLectivo === cicloLectivo && m.activa);
+    return matricula ? matricula.divisionId : null;
+  }
+
+  async function cargarMensualResumen(divisionIdParaConsulta) {
+    if (!divisionIdParaConsulta) { setTotalesMensualResumen([]); return; }
+    try {
+      const r = await cliente.get('/inasistencias/mensual', { params: { divisionId: divisionIdParaConsulta, cicloLectivo } });
+      setTotalesMensualResumen(r.data.totales || []);
+    } catch (err) {
+      setTotalesMensualResumen([]);
+    }
+  }
+
   useEffect(() => {
-    if (vista === 'resumen') cargarEventosResumen();
+    if (vista !== 'resumen') return;
+    cargarEventosResumen();
+    if (modoResumen === 'division') {
+      cargarMensualResumen(divisionResumen);
+    } else {
+      cargarMensualResumen(divisionIdDeAlumno(alumnos.find((a) => a.id === parseInt(alumnoResumen))));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, modoResumen, divisionResumen, alumnoResumen, cicloLectivo]);
+
+  // Último mes con un acumulado cargado para un alumno (o null si no hay
+  // ninguno) — es el fallback de Total cuando no hay Partes Diarios reales.
+  function ultimoMesConDatoDe(alumnoId) {
+    const delAlumno = totalesMensualResumen.filter((t) => t.alumnoId === alumnoId);
+    if (delAlumno.length === 0) return null;
+    return delAlumno.reduce((masReciente, actual) => (actual.mes > masReciente.mes ? actual : masReciente));
+  }
 
   const divisionesOrdenadas = [...divisiones]
     .filter((d) => d.activa)
@@ -162,15 +212,27 @@ function Inasistencias() {
   const resumenPorAlumno = alumnosDivisionResumen
     .map((a) => {
       const eventosDelAlumno = eventosResumen.filter((e) => e.alumnoId === a.id);
-      const total = eventosDelAlumno.reduce((acc, e) => acc + pesoEvento(e), 0);
-      const justificadas = eventosDelAlumno.reduce((acc, e) => acc + (e.justificada ? pesoEvento(e) : 0), 0);
-      return { alumno: a, total, justificadas, sinJustificar: Math.round((total - justificadas) * 100) / 100 };
+      const totalDiario = eventosDelAlumno.reduce((acc, e) => acc + pesoEvento(e), 0);
+      if (totalDiario > 0) {
+        const justificadas = eventosDelAlumno.reduce((acc, e) => acc + (e.justificada ? pesoEvento(e) : 0), 0);
+        return { alumno: a, total: totalDiario, justificadas, sinJustificar: Math.round((totalDiario - justificadas) * 100) / 100, fuente: 'diario' };
+      }
+      const ultimoMensual = ultimoMesConDatoDe(a.id);
+      if (ultimoMensual) {
+        return { alumno: a, total: ultimoMensual.total, justificadas: null, sinJustificar: null, fuente: 'mensual', mesMensual: ultimoMensual.mes };
+      }
+      return { alumno: a, total: 0, justificadas: 0, sinJustificar: 0, fuente: 'sin-datos' };
     })
-    .sort((a, b) => b.sinJustificar - a.sinJustificar || a.alumno.apellido.localeCompare(b.alumno.apellido));
+    .sort((a, b) => (b.sinJustificar ?? 0) - (a.sinJustificar ?? 0) || a.alumno.apellido.localeCompare(b.alumno.apellido));
 
   const eventosDelAlumnoOrdenados = [...eventosResumen].sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const totalAlumnoResumen = eventosDelAlumnoOrdenados.reduce((acc, e) => acc + pesoEvento(e), 0);
-  const justificadasAlumnoResumen = eventosDelAlumnoOrdenados.reduce((acc, e) => acc + (e.justificada ? pesoEvento(e) : 0), 0);
+  const totalDiarioAlumnoResumen = eventosDelAlumnoOrdenados.reduce((acc, e) => acc + pesoEvento(e), 0);
+  const ultimoMensualAlumnoResumen = totalDiarioAlumnoResumen === 0 && alumnoResumen
+    ? ultimoMesConDatoDe(parseInt(alumnoResumen)) : null;
+  const totalAlumnoResumen = totalDiarioAlumnoResumen > 0 ? totalDiarioAlumnoResumen : (ultimoMensualAlumnoResumen?.total ?? 0);
+  const justificadasAlumnoResumen = totalDiarioAlumnoResumen > 0
+    ? eventosDelAlumnoOrdenados.reduce((acc, e) => acc + (e.justificada ? pesoEvento(e) : 0), 0)
+    : null;
 
   function actualizarMarca(alumnoId, campo, valor) {
     setMarcas((anterior) => {
@@ -296,6 +358,60 @@ function Inasistencias() {
     }
   }
 
+  async function cargarMensual() {
+    if (!divisionMensual) { setAlumnosMensual([]); setTotalesMensual({}); return; }
+    setCargandoMensual(true);
+    setError('');
+    try {
+      const r = await cliente.get('/inasistencias/mensual', { params: { divisionId: divisionMensual, cicloLectivo } });
+      setAlumnosMensual(r.data.alumnos);
+      const mapa = {};
+      r.data.totales.forEach((t) => { mapa[`${t.alumnoId}-${t.mes}`] = t.total; });
+      setTotalesMensual(mapa);
+      setEdicionesMensual({});
+    } catch (err) {
+      setError('No se pudo cargar los totales mensuales de esta división');
+    } finally {
+      setCargandoMensual(false);
+    }
+  }
+
+  useEffect(() => {
+    if (vista === 'mensual') cargarMensual();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista, divisionMensual, cicloLectivo]);
+
+  function actualizarCeldaMensual(alumnoId, mes, valorTexto) {
+    const clave = `${alumnoId}-${mes}`;
+    setEdicionesMensual((anterior) => ({ ...anterior, [clave]: valorTexto }));
+  }
+
+  async function guardarMensual() {
+    const items = [];
+    for (const [clave, valorTexto] of Object.entries(edicionesMensual)) {
+      const [alumnoIdStr, mesStr] = clave.split('-');
+      if (valorTexto === '') continue; // vaciar una celda no borra el total ya guardado, solo no lo cambia
+      const total = parseFloat(valorTexto);
+      if (isNaN(total)) continue;
+      items.push({ alumnoId: parseInt(alumnoIdStr), cicloLectivo, mes: parseInt(mesStr), total });
+    }
+    if (items.length === 0) {
+      setError('No hay cambios sin guardar');
+      return;
+    }
+    setGuardandoMensual(true);
+    setError('');
+    try {
+      await cliente.put('/inasistencias/mensual/bulk', { items });
+      setMensajeExito(`Se guardaron ${items.length} total(es) mensual(es)`);
+      cargarMensual();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudieron guardar los totales mensuales');
+    } finally {
+      setGuardandoMensual(false);
+    }
+  }
+
   return (
     <div className="alumnos-pagina">
       <div className="alumnos-encabezado">
@@ -314,6 +430,12 @@ function Inasistencias() {
           onClick={() => setVista('resumen')}
         >
           Resumen
+        </button>
+        <button
+          className={vista === 'mensual' ? 'cargos-tab cargos-tab-activa' : 'cargos-tab'}
+          onClick={() => setVista('mensual')}
+        >
+          Totales por mes
         </button>
       </div>
 
@@ -393,14 +515,21 @@ function Inasistencias() {
                   </tr>
                 </thead>
                 <tbody>
-                  {resumenPorAlumno.map(({ alumno, total, justificadas, sinJustificar }) => (
+                  {resumenPorAlumno.map(({ alumno, total, justificadas, sinJustificar, fuente, mesMensual }) => (
                     <tr key={alumno.id}>
                       <td>{alumno.apellido}, {alumno.nombre}</td>
-                      <td>{total}</td>
-                      <td>{justificadas}</td>
+                      <td>
+                        {total}
+                        {fuente === 'mensual' && (
+                          <span className="inasistencias-total-mensual-nota" title="No hay Partes Diarios cargados día a día — es el acumulado del último mes cargado en Totales por mes">
+                            {' '}(a {MESES.find((m) => m.mes === mesMensual)?.etiqueta})
+                          </span>
+                        )}
+                      </td>
+                      <td>{justificadas ?? '—'}</td>
                       <td>
                         <span className={sinJustificar > 0 ? 'inasistencias-sin-justificar-alerta' : undefined}>
-                          {sinJustificar}
+                          {sinJustificar ?? '—'}
                         </span>
                       </td>
                     </tr>
@@ -413,8 +542,15 @@ function Inasistencias() {
           ) : (
             <>
               <p className="inasistencias-resumen-totales">
-                <strong>{alumnoResumenObj?.apellido}, {alumnoResumenObj?.nombre}</strong> — Total: {totalAlumnoResumen} ·
-                Justificadas: {justificadasAlumnoResumen} · Sin justificar: {Math.round((totalAlumnoResumen - justificadasAlumnoResumen) * 100) / 100}
+                <strong>{alumnoResumenObj?.apellido}, {alumnoResumenObj?.nombre}</strong> — Total: {totalAlumnoResumen}
+                {ultimoMensualAlumnoResumen && (
+                  <span className="inasistencias-total-mensual-nota" title="No hay Partes Diarios cargados día a día — es el acumulado del último mes cargado en Totales por mes">
+                    {' '}(a {MESES.find((m) => m.mes === ultimoMensualAlumnoResumen.mes)?.etiqueta})
+                  </span>
+                )}
+                {justificadasAlumnoResumen !== null && (
+                  <> · Justificadas: {justificadasAlumnoResumen} · Sin justificar: {Math.round((totalAlumnoResumen - justificadasAlumnoResumen) * 100) / 100}</>
+                )}
               </p>
 
               <form onSubmit={justificarRango} className="alumnos-formulario inasistencias-form-rango">
@@ -511,6 +647,80 @@ function Inasistencias() {
                   </tbody>
                 </table>
               )}
+            </>
+          )}
+        </>
+      ) : vista === 'mensual' ? (
+        <>
+          <p className="informes-subtitulo">
+            Cargá el total acumulado de inasistencias de cada alumno al cierre de cada mes (el mismo número que
+            ya traía otra planilla), sin necesidad de tener el detalle día por día. No reemplaza al Parte diario
+            — son dos formas distintas de cargar datos, cada una con su propio total.
+          </p>
+          <div className="alumnos-formulario">
+            <div className="alumnos-formulario-fila">
+              <div>
+                <label>División</label>
+                <select value={divisionMensual} onChange={(e) => setDivisionMensual(e.target.value)}>
+                  <option value="">Seleccioná una división</option>
+                  {divisionesOrdenadas.map((division) => (
+                    <option key={division.id} value={division.id}>{division.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {cargandoMensual ? (
+            <p>Cargando...</p>
+          ) : !divisionMensual ? (
+            <p className="alumnos-vacio">Elegí una división para cargar o revisar sus totales mensuales.</p>
+          ) : alumnosMensual.length === 0 ? (
+            <p className="alumnos-vacio">No hay alumnos con matrícula activa en esa división para este ciclo.</p>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="alumnos-tabla">
+                  <thead>
+                    <tr>
+                      <th>Alumno</th>
+                      {MESES.map((m) => <th key={m.mes}>{m.etiqueta}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alumnosMensual.map((alumno) => (
+                      <tr key={alumno.id}>
+                        <td>{alumno.apellido}, {alumno.nombre}</td>
+                        {MESES.map((m) => {
+                          const clave = `${alumno.id}-${m.mes}`;
+                          const valorEditado = edicionesMensual[clave];
+                          const valorGuardado = totalesMensual[clave];
+                          const valor = valorEditado !== undefined ? valorEditado : (valorGuardado ?? '');
+                          return (
+                            <td key={m.mes}>
+                              <input
+                                type="number"
+                                step="0.25"
+                                min="0"
+                                value={valor}
+                                style={{ width: '70px' }}
+                                onChange={(e) => actualizarCeldaMensual(alumno.id, m.mes, e.target.value)}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                className="inasistencias-boton-guardar"
+                onClick={guardarMensual}
+                disabled={guardandoMensual || Object.keys(edicionesMensual).length === 0}
+              >
+                {guardandoMensual ? 'Guardando...' : `Guardar cambios (${Object.keys(edicionesMensual).length})`}
+              </button>
             </>
           )}
         </>

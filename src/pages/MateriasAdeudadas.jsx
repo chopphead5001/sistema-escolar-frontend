@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useAuth } from '../context/AuthContext';
 import cliente from '../api/cliente';
 import './Alumnos.css';
@@ -64,6 +64,10 @@ function MateriasAdeudadas() {
   const [candidatosGenerar, setCandidatosGenerar] = useState(null);
   const [seleccionGenerar, setSeleccionGenerar] = useState({});
   const [generando, setGenerando] = useState(false);
+  // "Todas las divisiones" tarda más que una sola — sin esto, buscar una
+  // división específica justo después puede mostrar la respuesta vieja de
+  // "todas" si llega después (condición de carrera).
+  const solicitudGenerarRef = useRef(0);
 
   async function cargarDatos() {
     setCargando(true);
@@ -164,26 +168,29 @@ function MateriasAdeudadas() {
     setError('');
     setMensajeExito('');
     setMostrarGenerar(!mostrarGenerar);
-    setDivisionGenerarId('');
+    setDivisionGenerarId('todas');
     setCandidatosGenerar(null);
     setSeleccionGenerar({});
   }
 
   async function buscarPreviewGenerar() {
     if (!divisionGenerarId) return;
+    const idSolicitud = ++solicitudGenerarRef.current;
     setBuscandoPreview(true);
     setError('');
     setCandidatosGenerar(null);
     try {
       const respuesta = await cliente.get(`/materias-adeudadas/generar-preview/${divisionGenerarId}/${cicloLectivo}`);
+      if (idSolicitud !== solicitudGenerarRef.current) return; // llegó una búsqueda más nueva antes: descartar esta
       setCandidatosGenerar(respuesta.data);
       const seleccionInicial = {};
       respuesta.data.forEach((c) => { seleccionInicial[`${c.alumnoId}-${c.materiaId}`] = true; });
       setSeleccionGenerar(seleccionInicial);
     } catch (err) {
+      if (idSolicitud !== solicitudGenerarRef.current) return;
       setError(err.response?.data?.error || 'No se pudo calcular la vista previa');
     } finally {
-      setBuscandoPreview(false);
+      if (idSolicitud === solicitudGenerarRef.current) setBuscandoPreview(false);
     }
   }
 
@@ -194,7 +201,13 @@ function MateriasAdeudadas() {
   async function confirmarGenerar() {
     const items = candidatosGenerar
       .filter((c) => seleccionGenerar[`${c.alumnoId}-${c.materiaId}`])
-      .map((c) => ({ alumnoId: c.alumnoId, materiaId: c.materiaId, tipo: c.tipo, origenAdeudadaId: c.origenAdeudadaId }));
+      .map((c) => ({
+        alumnoId: c.alumnoId,
+        materiaId: c.materiaId,
+        tipo: c.tipo,
+        origenAdeudadaId: c.origenAdeudadaId,
+        divisionId: c.divisionId
+      }));
     if (items.length === 0) return;
     setGenerando(true);
     setError('');
@@ -443,6 +456,28 @@ function MateriasAdeudadas() {
     `${a.alumno.apellido} ${a.alumno.nombre}`.localeCompare(`${b.alumno.apellido} ${b.alumno.nombre}`)
   );
 
+  // División actual del alumno (no viene en `deuda.alumno`, que es el Alumno
+  // "pelado" del propio endpoint de materias adeudadas) — se busca en `alumnos`
+  // (cargado aparte, con matriculas) para poder agrupar el listado por división.
+  function divisionActualDe(alumnoId) {
+    const alumnoCompleto = alumnos.find((a) => a.id === alumnoId);
+    const matricula = alumnoCompleto?.matriculas?.find((m) => m.cicloLectivo === cicloLectivo && m.activa);
+    return matricula?.division || null;
+  }
+
+  const gruposPorDivision = {};
+  gruposOrdenados.forEach((grupo) => {
+    const division = divisionActualDe(grupo.alumno.id);
+    const clave = division ? division.id : 'sin-division';
+    if (!gruposPorDivision[clave]) gruposPorDivision[clave] = { division, grupos: [] };
+    gruposPorDivision[clave].grupos.push(grupo);
+  });
+  const gruposPorDivisionOrdenados = Object.values(gruposPorDivision).sort((a, b) => {
+    if (!a.division) return 1;
+    if (!b.division) return -1;
+    return a.division.nombre.localeCompare(b.division.nombre);
+  });
+
   if (!esSecretaria) {
     return (
       <div className="alumnos-pagina">
@@ -560,16 +595,17 @@ function MateriasAdeudadas() {
       {mostrarGenerar && (
         <div className="alumnos-formulario">
           <p className="materiasadeudadas-confirmar-texto">
-            Busca, por división, dos cosas para {cicloLectivo + 1}: materias con promedio de Boletines por
-            debajo de 7 en {cicloLectivo} que todavía no tengan una adeudada registrada ("Nueva"), y materias
-            que el alumno ya debía (Recursa/Intensifica/Pendiente) y que siguen sin aprobar ("Continúa").
-            No se crea nada hasta confirmar la selección.
+            Busca dos cosas para {cicloLectivo + 1} (en todas las divisiones, o en una sola si preferís revisar
+            de a poco): materias con promedio de Boletines por debajo de 7 en {cicloLectivo} que todavía no
+            tengan una adeudada registrada ("Nueva"), y materias que el alumno ya debía
+            (Recursa/Intensifica/Pendiente) y que siguen sin aprobar ("Continúa"). Todo aparece pre-tildado —
+            destildá solo los casos que necesiten una excepción. No se crea nada hasta confirmar la selección.
           </p>
           <div className="alumnos-formulario-fila">
             <div>
               <label>División</label>
-              <select value={divisionGenerarId} onChange={(e) => { setDivisionGenerarId(e.target.value); setCandidatosGenerar(null); }}>
-                <option value="">Seleccioná una división</option>
+              <select value={divisionGenerarId} onChange={(e) => { solicitudGenerarRef.current++; setDivisionGenerarId(e.target.value); setCandidatosGenerar(null); }}>
+                <option value="todas">Todas las divisiones</option>
                 {divisionesOrdenadas.map((division) => (
                   <option key={division.id} value={division.id}>{division.nombre}</option>
                 ))}
@@ -589,6 +625,7 @@ function MateriasAdeudadas() {
                   <thead>
                     <tr>
                       <th></th>
+                      <th>División</th>
                       <th>Alumno</th>
                       <th>Materia</th>
                       <th>Tipo</th>
@@ -607,6 +644,7 @@ function MateriasAdeudadas() {
                               onChange={() => alternarCandidatoGenerar(clave)}
                             />
                           </td>
+                          <td>{c.divisionNombre}</td>
                           <td>{c.alumnoNombre}</td>
                           <td>{c.materiaNombre}</td>
                           <td>
@@ -691,7 +729,12 @@ function MateriasAdeudadas() {
           {gruposOrdenados.length === 0 ? (
             <p className="alumnos-vacio">Ninguna materia adeudada coincide con la búsqueda.</p>
           ) : (
-            gruposOrdenados.map(({ alumno, deudas: deudasAlumno }) => {
+            gruposPorDivisionOrdenados.map(({ division, grupos }) => (
+              <div key={division ? division.id : 'sin-division'} className="materiasadeudadas-grupo-division">
+                <h2 className="materiasadeudadas-titulo-division">
+                  {division ? division.nombre : 'Sin matrícula activa este ciclo'}
+                </h2>
+                {grupos.map(({ alumno, deudas: deudasAlumno }) => {
               const resumen = resumenes[alumno.id];
               // Distinto de resumen.pendientes (modalidad PENDIENTE ya activa
               // este ciclo): esto es lo que quedó afuera del cupo de este año
@@ -960,7 +1003,9 @@ function MateriasAdeudadas() {
                   </table>
                 </div>
               );
-            })
+                })}
+              </div>
+            ))
           )}
         </>
       )}
