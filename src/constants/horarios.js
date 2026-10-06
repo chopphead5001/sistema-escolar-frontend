@@ -150,9 +150,29 @@ export function licenciaVigenteEn(licencia, fecha) {
   return claveDiaUTC(licencia.fechaFin) >= claveFecha;
 }
 
+// ¿Regía este bloque de horario en la fecha dada? Mismo criterio que
+// licenciaVigenteEn: null en vigenteDesde/vigenteHasta es "sin límite" de ese
+// lado (los bloques cargados antes de que existiera este campo quedan con
+// vigenteDesde null, o sea que rigieron desde siempre). Sin `fecha` compara
+// contra hoy — así un horario editado hoy no corrompe retroactivamente las
+// estadísticas de fechas anteriores al cambio.
+export function bloqueVigenteEn(bloque, fecha) {
+  let claveFecha;
+  if (fecha) {
+    claveFecha = claveDiaUTC(fecha);
+  } else {
+    const ahora = new Date();
+    claveFecha = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  }
+  if (bloque.vigenteDesde && claveDiaUTC(bloque.vigenteDesde) > claveFecha) return false;
+  if (bloque.vigenteHasta && claveDiaUTC(bloque.vigenteHasta) < claveFecha) return false;
+  return true;
+}
+
 export function resumenHorario(bloques) {
-  if (!bloques || bloques.length === 0) return '-';
-  const ordenados = [...bloques].sort((a, b) => {
+  const vigentesHoy = (bloques || []).filter((b) => bloqueVigenteEn(b));
+  if (vigentesHoy.length === 0) return '-';
+  const ordenados = [...vigentesHoy].sort((a, b) => {
     const diaA = DIAS_SEMANA.findIndex((d) => d.valor === a.diaSemana);
     const diaB = DIAS_SEMANA.findIndex((d) => d.valor === b.diaSemana);
     if (diaA !== diaB) return diaA - diaB;

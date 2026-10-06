@@ -24,6 +24,20 @@ function RutaProtegida({ children }) {
   return children;
 }
 
+// Para una ruta hija SECRETARIA-only (el login ya lo garantiza RutaProtegida
+// en el padre) — redirige a Inicio en vez de dejar que la página cargue y se
+// encuentre con el 403 crudo del backend. Mismo criterio que usa Layout.jsx
+// para ocultar el link del menú (ver esSecretaria ahí); esto solo mejora la
+// UX de un PRECEPTOR que tipea la URL a mano, no es una capa de seguridad —
+// esa vive en el backend (soloSecretaria en las rutas correspondientes).
+function RutaSecretaria({ children }) {
+  const { usuario } = useAuth();
+  if (usuario.rol !== 'SECRETARIA') {
+    return <Navigate to="/" />;
+  }
+  return children;
+}
+
 function RutasDeLaApp() {
   return (
     <Routes>
@@ -38,17 +52,17 @@ function RutasDeLaApp() {
         }
       >
         <Route index element={<Inicio />} />
-        <Route path="personal" element={<Personal />} />
-        <Route path="cargos" element={<Cargos />} />
-        <Route path="horarios" element={<Horarios />} />
-        <Route path="divisiones" element={<Divisiones />} />
+        <Route path="personal" element={<RutaSecretaria><Personal /></RutaSecretaria>} />
+        <Route path="cargos" element={<RutaSecretaria><Cargos /></RutaSecretaria>} />
+        <Route path="horarios" element={<RutaSecretaria><Horarios /></RutaSecretaria>} />
+        <Route path="divisiones" element={<RutaSecretaria><Divisiones /></RutaSecretaria>} />
         <Route path="alumnos" element={<Alumnos />} />
         <Route path="boletines" element={<Boletines />} />
         <Route path="inasistencias" element={<Inasistencias />} />
         <Route path="partes-diarios" element={<PartesDiarios />} />
-        <Route path="licencias" element={<Licencias />} />
-        <Route path="materias-adeudadas" element={<MateriasAdeudadas />} />
-        <Route path="informes" element={<Informes />} />
+        <Route path="licencias" element={<RutaSecretaria><Licencias /></RutaSecretaria>} />
+        <Route path="materias-adeudadas" element={<RutaSecretaria><MateriasAdeudadas /></RutaSecretaria>} />
+        <Route path="informes" element={<RutaSecretaria><Informes /></RutaSecretaria>} />
       </Route>
     </Routes>
   );

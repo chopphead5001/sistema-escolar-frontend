@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCicloLectivo } from '../context/CicloLectivoContext';
 import cliente from '../api/cliente';
 import './Alumnos.css';
@@ -6,7 +6,7 @@ import './Cargos.css';
 import './MateriasAdeudadas.css';
 import './Inasistencias.css';
 import './PartesDiarios.css';
-import { diaSemanaDeFecha, duracionHoras, turnoDeHora, licenciaVigenteEn } from '../constants/horarios';
+import { diaSemanaDeFecha, duracionHoras, turnoDeHora, licenciaVigenteEn, bloqueVigenteEn, ETIQUETA_TURNO } from '../constants/horarios';
 
 const CARGOS_LABEL = 'Cargos (sin división)';
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -25,6 +25,31 @@ function fechaCorta(fechaIso) {
 
 function redondear(n) {
   return Math.round(n * 100) / 100;
+}
+
+// Faltar en todos los turnos programados un día = 1 día; en solo alguno de
+// los que tenía, una fracción (ej. 1 de 2 turnos = medio día).
+function formatoDias(v) {
+  if (v === 0.5) return 'medio día';
+  return `${v} ${v === 1 ? 'día' : 'días'}`;
+}
+
+// "Cargos (sin división)" se mide en días (ver agruparCargosDelDia); el resto
+// (profesores de aula) sigue en horas.
+function formatoAusente(valor, label) {
+  const v = redondear(valor);
+  if (label === CARGOS_LABEL) return formatoDias(v);
+  return `${v}h`;
+}
+
+// Resumen del header de una persona en el ranking: si tiene ausencias de
+// ambos tipos (ej. da clase Y además cubre un cargo administrativo), muestra
+// los dos por separado en vez de sumarlos en un solo número sin sentido.
+function resumenAusenciasPersona(p) {
+  const partes = [];
+  if (p.diasAusentes > 0) partes.push(`${formatoDias(p.diasAusentes)} (${p.pctDias}%)`);
+  if (p.horasAusentes > 0) partes.push(`${p.horasAusentes}h (${p.pctHoras}%)`);
+  return `${partes.join(' + ')} ausente`;
 }
 
 // Resuelve, para un cargo "real" (no generado por otra licencia), quién lo
@@ -73,10 +98,16 @@ function agruparCargosDelDia(cargos, fecha, turno) {
   const cargosActivos = cargosBase.map((c) => cargoActivoEn(c, cargos, fecha));
   cargosActivos.forEach((cargo) => {
     const bloques = (cargo.bloquesHorario || []).filter(
-      (b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum
+      (b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum && bloqueVigenteEn(b, fecha)
     );
     if (bloques.length === 0) return;
-    const horas = redondear(bloques.reduce((acc, b) => acc + duracionHoras(b), 0));
+    // Cargos sin división (Director/a, Preceptor/a, Secretaría, EMTP, etc.) no
+    // se cuentan en horas de cátedra: una ausencia ahí es "faltó el día", no
+    // "faltó N horas" — a pedido del usuario (2026-09-16), para no confundir
+    // con las horas reales de los profesores de aula.
+    const horas = cargo.divisionId
+      ? redondear(bloques.reduce((acc, b) => acc + duracionHoras(b), 0))
+      : 1;
     const item = { cargo, bloques, horas };
     if (cargo.divisionId) {
       if (!porDivision[cargo.divisionId]) porDivision[cargo.divisionId] = { division: cargo.division, items: [] };
@@ -131,55 +162,142 @@ function calcularEstadisticas(cargos, confirmados, partes, filtroMes, filtroTurn
       .filter((c) => c.divisionId === confirmado.divisionId)
       .map((c) => cargoActivoEn(c, cargos, confirmado.fecha))
       .forEach((cargo) => {
-        const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum);
+        const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum && bloqueVigenteEn(b, confirmado.fecha));
         if (bloques.length === 0) return;
         entradaGrupo(cargo).posibles += bloques.reduce((acc, b) => acc + duracionHoras(b), 0);
       });
   });
 
-  // Posibles de "Cargos" (sin división): no tienen confirmación propia, se
-  // usa la unión de turnos ya confirmados por cualquier división como proxy
-  // de "hubo actividad escolar ese turno" (igual que hace la referencia).
-  // Mismo criterio de resolución por fecha que arriba.
-  turnosConfirmadosUnicos.forEach((clave) => {
-    const [f, turnoStr] = clave.split('|');
-    const dia = diaSemanaDeFecha(f);
-    if (!dia) return;
-    const turnoEnum = turnoAEnum(turnoStr);
-    cargosBaseStats
-      .filter((c) => !c.divisionId)
-      .map((c) => cargoActivoEn(c, cargos, f))
-      .forEach((cargo) => {
-        const bloques = (cargo.bloquesHorario || []).filter((b) => b.diaSemana === dia && turnoDeHora(b.horaInicio) === turnoEnum);
-        if (bloques.length === 0) return;
-        entradaGrupo(cargo).posibles += bloques.reduce((acc, b) => acc + duracionHoras(b), 0);
-      });
-  });
-
-  let totalHorasAusentes = 0;
+  // "Cargos" (sin división): no tienen confirmación propia, se usa como proxy
+  // de "hubo actividad escolar ese turno" la unión de turnos ya confirmados
+  // por cualquier división MÁS los turnos donde ya hay una ausencia de cargo
+  // cargada (evidencia de que el turno existió aunque nadie lo haya
+  // confirmado desde una división) — a pedido del usuario (2026-09-16): con
+  // solo confirmados, la mayoría de los partes de cargos importados no
+  // tenían con qué compararse y el ausentismo daba >100%.
+  const turnosConEvidenciaCargos = new Set(turnosConfirmadosUnicos);
   partes.forEach((parte) => {
-    if (!parte.horasAfectadas) return;
+    if (parte.cargo.divisionId !== null) return;
     const f = fechaCorta(parte.fecha);
     if (filtroMes !== 'todos' && !f.startsWith(filtroMes)) return;
     if (filtroTurno !== 'todos' && parte.turno !== filtroTurno) return;
-    const divisionId = parte.cargo.divisionId;
-    const clave = `${divisionId}|${f}|${parte.turno}`;
-    if (divisionId !== null && !clavesConfirmadas.has(clave)) return;
+    turnosConEvidenciaCargos.add(`${f}|${parte.turno}`);
+  });
+
+  // Turnos (Mañana/Tarde) que una persona sin división tenía programados un
+  // día puntual, mirando TODOS sus cargos sin división vigentes ese día (no
+  // solo el que originó el parte) — necesario para gente como Da Costa,
+  // Valeria, que tiene un cargo de Preceptora a la mañana y otro a la tarde.
+  function turnosSinDivisionProgramados(personaId, fecha, dia) {
+    const turnos = new Set();
+    cargosBaseStats
+      .filter((c) => !c.divisionId && c.personaId === personaId)
+      .map((c) => cargoActivoEn(c, cargos, fecha))
+      .forEach((cargo) => {
+        (cargo.bloquesHorario || []).forEach((b) => {
+          if (b.diaSemana !== dia || !bloqueVigenteEn(b, fecha)) return;
+          const t = ETIQUETA_TURNO[turnoDeHora(b.horaInicio)];
+          if (filtroTurno !== 'todos' && t !== filtroTurno) return;
+          turnos.add(t);
+        });
+      });
+    return turnos;
+  }
+
+  // Horas (docentes de aula) y días (cargos sin división) se acumulan por
+  // separado: sumarlos en un solo número no tiene sentido (mezclaría "5
+  // días" con "5 horas") y fue lo que hacía que personas con ambos tipos de
+  // cargo (ej. Escudero, Gaston: profesor + preceptor) dieran porcentajes de
+  // ausentismo absurdos como 800% — a pedido del usuario (2026-09-16).
+  let totalHorasAusentesDocentes = 0;
+  let totalDiasAusentesCargos = 0;
+
+  // Docentes de aula: sin cambios, un parte = sus horas reales.
+  partes.forEach((parte) => {
+    if (!parte.horasAfectadas || parte.cargo.divisionId === null) return;
+    const f = fechaCorta(parte.fecha);
+    if (filtroMes !== 'todos' && !f.startsWith(filtroMes)) return;
+    if (filtroTurno !== 'todos' && parte.turno !== filtroTurno) return;
+    const clave = `${parte.cargo.divisionId}|${f}|${parte.turno}`;
+    if (!clavesConfirmadas.has(clave)) return;
 
     const grupo = entradaGrupo(parte.cargo);
     grupo.ausentes += parte.horasAfectadas;
     grupo.fechas.push({ fecha: f, horas: parte.horasAfectadas, cargoNombre: parte.cargo.nombreCargo });
-    totalHorasAusentes += parte.horasAfectadas;
+    totalHorasAusentesDocentes += parte.horasAfectadas;
+  });
+
+  // Cargos sin división: agrupar por (persona, fecha) — faltar en los 2
+  // turnos que tenía programados ese día cuenta como 1 día completo; faltar
+  // en uno solo de los que tenía programados, como medio día — a pedido del
+  // usuario (2026-09-16), para que Da Costa, Valeria (Preceptora mañana y
+  // tarde) no figure faltando "2 días" por faltar un solo día completo.
+  const partesCargoPorPersonaFecha = new Map(); // "personaId|fecha" -> { cargo, fecha, turnosAusentes: Set }
+  partes.forEach((parte) => {
+    if (!parte.horasAfectadas || parte.cargo.divisionId !== null) return;
+    const f = fechaCorta(parte.fecha);
+    if (filtroMes !== 'todos' && !f.startsWith(filtroMes)) return;
+    if (filtroTurno !== 'todos' && parte.turno !== filtroTurno) return;
+    const key = `${parte.cargo.personaId}|${f}`;
+    if (!partesCargoPorPersonaFecha.has(key)) {
+      partesCargoPorPersonaFecha.set(key, { cargo: parte.cargo, fecha: f, turnosAusentes: new Set() });
+    }
+    partesCargoPorPersonaFecha.get(key).turnosAusentes.add(parte.turno);
+  });
+
+  partesCargoPorPersonaFecha.forEach(({ cargo, fecha, turnosAusentes }) => {
+    const dia = diaSemanaDeFecha(fecha);
+    const turnosProgramados = dia ? turnosSinDivisionProgramados(cargo.personaId, fecha, dia) : new Set();
+    const denominador = turnosProgramados.size || turnosAusentes.size || 1;
+    const fraccionDia = redondear(Math.min(1, turnosAusentes.size / denominador));
+
+    const grupo = entradaGrupo(cargo);
+    grupo.ausentes += fraccionDia;
+    grupo.fechas.push({
+      fecha,
+      horas: fraccionDia,
+      cargoNombre: `${cargo.nombreCargo} (${[...turnosAusentes].sort().join('/')})`
+    });
+    totalDiasAusentesCargos += fraccionDia;
+  });
+
+  // Posibles de "Cargos": 1 día posible por (persona, fecha) donde tenía al
+  // menos un turno programado y ese turno tiene evidencia de haber ocurrido
+  // — misma unidad "día" que ausentes arriba, no por turno suelto.
+  const fechasConEvidencia = new Set([...turnosConEvidenciaCargos].map((c) => c.split('|')[0]));
+  const personasSinDivision = [...new Set(cargosBaseStats.filter((c) => !c.divisionId).map((c) => c.personaId))];
+  personasSinDivision.forEach((personaId) => {
+    fechasConEvidencia.forEach((fecha) => {
+      const dia = diaSemanaDeFecha(fecha);
+      if (!dia) return;
+      const turnosProgramados = turnosSinDivisionProgramados(personaId, fecha, dia);
+      if (turnosProgramados.size === 0) return;
+      const hayEvidenciaEseDia = [...turnosProgramados].some((t) => turnosConEvidenciaCargos.has(`${fecha}|${t}`));
+      if (!hayEvidenciaEseDia) return;
+      const cargoPersona = cargosBaseStats.find((c) => !c.divisionId && c.personaId === personaId);
+      entradaGrupo(cargoPersona).posibles += 1;
+    });
   });
 
   const ranking = Object.values(conteo)
     .map((p) => {
-      const totalAusentes = Object.values(p.grupos).reduce((s, g) => s + g.ausentes, 0);
-      const totalPosibles = Object.values(p.grupos).reduce((s, g) => s + g.posibles, 0);
-      return { ...p, totalAusentes: redondear(totalAusentes), totalPosibles: redondear(totalPosibles) };
+      let diasAusentes = 0, diasPosibles = 0, horasAusentes = 0, horasPosibles = 0;
+      Object.entries(p.grupos).forEach(([label, g]) => {
+        if (label === CARGOS_LABEL) { diasAusentes += g.ausentes; diasPosibles += g.posibles; }
+        else { horasAusentes += g.ausentes; horasPosibles += g.posibles; }
+      });
+      return {
+        ...p,
+        diasAusentes: redondear(diasAusentes),
+        diasPosibles: redondear(diasPosibles),
+        pctDias: diasPosibles > 0 ? Math.round((diasAusentes / diasPosibles) * 100) : 0,
+        horasAusentes: redondear(horasAusentes),
+        horasPosibles: redondear(horasPosibles),
+        pctHoras: horasPosibles > 0 ? Math.round((horasAusentes / horasPosibles) * 100) : 0
+      };
     })
-    .filter((p) => p.totalAusentes > 0)
-    .sort((a, b) => b.totalAusentes - a.totalAusentes);
+    .filter((p) => p.diasAusentes > 0 || p.horasAusentes > 0)
+    .sort((a, b) => (b.diasAusentes + b.horasAusentes) - (a.diasAusentes + a.horasAusentes));
 
   // Misma información que "ranking", pero organizada por división en vez de
   // por persona (invierte conteo: división -> personas que faltaron ahí).
@@ -208,9 +326,10 @@ function calcularEstadisticas(cargos, confirmados, partes, filtroMes, filtroTurn
   return {
     ranking,
     divisiones,
-    totalHorasAusentes: redondear(totalHorasAusentes),
+    totalHorasAusentes: redondear(totalHorasAusentesDocentes),
+    totalDiasAusentesCargos: redondear(totalDiasAusentesCargos),
     diasRegistrados: diasSet.size,
-    promedioHorasDia: diasSet.size ? redondear(totalHorasAusentes / diasSet.size) : 0
+    promedioHorasDia: diasSet.size ? redondear(totalHorasAusentesDocentes / diasSet.size) : 0
   };
 }
 
@@ -249,11 +368,16 @@ function PartesDiarios() {
   const [divisionesAbiertas, setDivisionesAbiertas] = useState({});
   const [guardandoRegistro, setGuardandoRegistro] = useState(false);
 
+  const solicitudConfirmadosRef = useRef(0);
+
   async function cargarConfirmados() {
+    const idSolicitud = ++solicitudConfirmadosRef.current;
     try {
       const respuesta = await cliente.get('/partes-diarios/confirmados', { params: { cicloLectivo } });
+      if (idSolicitud !== solicitudConfirmadosRef.current) return; // llegó una carga más nueva antes: descartar esta
       setConfirmados(respuesta.data);
     } catch (err) {
+      if (idSolicitud !== solicitudConfirmadosRef.current) return;
       setConfirmados([]);
     }
   }
@@ -262,15 +386,24 @@ function PartesDiarios() {
     cargarConfirmados();
   }, [cicloLectivo]);
 
+  // fecha/turno pueden cambiar rápido (ej. tipeando la fecha) — sin este
+  // guard, la respuesta de un fetch viejo puede llegar después que la de uno
+  // más nuevo y pisar partesDelTurno con datos de otra fecha/turno (mismo
+  // patrón ya resuelto en MateriasAdeudadas.jsx con solicitudGenerarRef).
+  const solicitudTurnoRef = useRef(0);
+
   async function cargarPartesDelTurno() {
+    const idSolicitud = ++solicitudTurnoRef.current;
     if (!fecha || !turno) {
       setPartesDelTurno([]);
       return;
     }
     try {
       const respuesta = await cliente.get('/partes-diarios', { params: { fecha, turno } });
+      if (idSolicitud !== solicitudTurnoRef.current) return;
       setPartesDelTurno(respuesta.data);
     } catch (err) {
+      if (idSolicitud !== solicitudTurnoRef.current) return;
       setPartesDelTurno([]);
     }
   }
@@ -367,15 +500,20 @@ function PartesDiarios() {
   const [rankingAbierto, setRankingAbierto] = useState({});
   const [divisionesStatsAbiertas, setDivisionesStatsAbiertas] = useState({});
 
+  const solicitudCicloRef = useRef(0);
+
   async function cargarPartesDelCiclo() {
+    const idSolicitud = ++solicitudCicloRef.current;
     setCargandoStats(true);
     try {
       const respuesta = await cliente.get('/partes-diarios', { params: { cicloLectivo } });
+      if (idSolicitud !== solicitudCicloRef.current) return;
       setPartesDelCiclo(respuesta.data);
     } catch (err) {
+      if (idSolicitud !== solicitudCicloRef.current) return;
       setPartesDelCiclo([]);
     } finally {
-      setCargandoStats(false);
+      if (idSolicitud === solicitudCicloRef.current) setCargandoStats(false);
     }
   }
 
@@ -415,11 +553,16 @@ function PartesDiarios() {
   const [licenciaVigente, setLicenciaVigente] = useState(null);
 
   function cambiarTipoHist(tipo) {
-    setFormularioHist((previo) => ({ ...previo, tipo, divisionId: '', cargoId: '' }));
+    // Cargo administrativo siempre computa como 1 día, no horas (ver
+    // agruparCargosDelDia / formatoAusente).
+    setFormularioHist((previo) => ({ ...previo, tipo, divisionId: '', cargoId: '', horasAfectadas: tipo === 'cargo' ? '1' : '' }));
     setBusquedaPersona('');
   }
 
+  const solicitudHistRef = useRef(0);
+
   async function cargarPartesHist() {
+    const idSolicitud = ++solicitudHistRef.current;
     if (!fechaHist) {
       setPartesHist([]);
       return;
@@ -427,11 +570,13 @@ function PartesDiarios() {
     setCargandoHist(true);
     try {
       const respuesta = await cliente.get('/partes-diarios', { params: { fecha: fechaHist, turno: turnoFiltroHist || undefined } });
+      if (idSolicitud !== solicitudHistRef.current) return;
       setPartesHist(respuesta.data);
     } catch (err) {
+      if (idSolicitud !== solicitudHistRef.current) return;
       setError('No se pudo cargar el parte diario');
     } finally {
-      setCargandoHist(false);
+      if (idSolicitud === solicitudHistRef.current) setCargandoHist(false);
     }
   }
 
@@ -640,7 +785,7 @@ function PartesDiarios() {
                   <div className="partes-tarjeta-header" onClick={() => alternarDivision('sin-division')}>
                     <span className="partes-tarjeta-nombre">{CARGOS_LABEL}</span>
                     <span className={`partes-badge ${horasAusentesDeGrupo(agrupado.sinDivision) > 0 ? 'partes-badge-alerta' : ''}`}>
-                      {horasAusentesDeGrupo(agrupado.sinDivision) > 0 ? `✗ ${horasAusentesDeGrupo(agrupado.sinDivision)}h` : 'Completo'}
+                      {horasAusentesDeGrupo(agrupado.sinDivision) > 0 ? `✗ ${formatoAusente(horasAusentesDeGrupo(agrupado.sinDivision), CARGOS_LABEL)}` : 'Completo'}
                     </span>
                     <span className={`partes-chevron ${divisionesAbiertas['sin-division'] ? 'partes-chevron-abierto' : ''}`}>▼</span>
                   </div>
@@ -653,7 +798,7 @@ function PartesDiarios() {
                             <div className="partes-persona-info">
                               <div className="partes-persona-nombre">{nombrePersona(cargo.persona)}</div>
                               <div className="partes-persona-detalle">
-                                {cargo.nombreCargo} · {horas}h{cargo.origenLicenciaId && ' · suplencia'}
+                                {cargo.nombreCargo} · 1 día{cargo.origenLicenciaId && ' · suplencia'}
                               </div>
                             </div>
                             <button
@@ -719,7 +864,11 @@ function PartesDiarios() {
           <div className="partes-stats-grid">
             <div className="partes-stat-tile">
               <div className="partes-stat-numero">{stats.totalHorasAusentes}</div>
-              <div className="partes-stat-etiqueta">Horas ausentes</div>
+              <div className="partes-stat-etiqueta">Horas ausentes (docentes)</div>
+            </div>
+            <div className="partes-stat-tile">
+              <div className="partes-stat-numero">{stats.totalDiasAusentesCargos}</div>
+              <div className="partes-stat-etiqueta">Días ausentes (cargos)</div>
             </div>
             <div className="partes-stat-tile">
               <div className="partes-stat-numero">{stats.diasRegistrados}</div>
@@ -731,7 +880,7 @@ function PartesDiarios() {
             </div>
             <div className="partes-stat-tile">
               <div className="partes-stat-numero">{stats.promedioHorasDia}</div>
-              <div className="partes-stat-etiqueta">Prom. horas/día</div>
+              <div className="partes-stat-etiqueta">Prom. horas/día (docentes)</div>
             </div>
           </div>
 
@@ -741,15 +890,15 @@ function PartesDiarios() {
             rankingFiltrado.length === 0 ? (
               <p className="alumnos-vacio">Sin inasistencias registradas para este filtro.</p>
             ) : (
-              rankingFiltrado.map(({ personaId, nombre, grupos, totalAusentes, totalPosibles }, indice) => {
-                const pct = totalPosibles > 0 ? Math.round((totalAusentes / totalPosibles) * 100) : 0;
+              rankingFiltrado.map((p, indice) => {
+                const { personaId, nombre, grupos } = p;
                 const abierto = !!rankingAbierto[personaId];
                 return (
                   <div key={personaId} className="partes-tarjeta">
                     <div className="partes-tarjeta-header" onClick={() => alternarRanking(personaId)}>
                       <div style={{ flex: 1 }}>
                         <div className="partes-tarjeta-nombre">{nombre}</div>
-                        <div className="partes-ranking-subtitulo">{totalAusentes}h ausente · {pct}% de ausentismo</div>
+                        <div className="partes-ranking-subtitulo">{resumenAusenciasPersona(p)}</div>
                       </div>
                       <span className="partes-badge partes-badge-alerta">{indice + 1}°</span>
                       <span className={`partes-chevron ${abierto ? 'partes-chevron-abierto' : ''}`}>▼</span>
@@ -763,13 +912,13 @@ function PartesDiarios() {
                               <div className="partes-fila-detalle-encabezado">
                                 <span>{label}</span>
                                 <span className="partes-fila-detalle-badges">
-                                  <span className="partes-badge">{redondear(g.ausentes)}h / {redondear(g.posibles)}h</span>
+                                  <span className="partes-badge">{formatoAusente(g.ausentes, label)} / {formatoAusente(g.posibles, label)}</span>
                                   <span className="partes-badge partes-badge-alerta">{pctGrupo}%</span>
                                 </span>
                               </div>
                               <div className="partes-fila-detalle-fechas">
                                 {g.fechas.map((f, i) => (
-                                  <span key={i}>{f.fecha.split('-').reverse().join('/')} · {f.cargoNombre} ({f.horas}h){i < g.fechas.length - 1 ? ', ' : ''}</span>
+                                  <span key={i}>{f.fecha.split('-').reverse().join('/')} · {f.cargoNombre} ({formatoAusente(f.horas, label)}){i < g.fechas.length - 1 ? ', ' : ''}</span>
                                 ))}
                               </div>
                             </div>
@@ -792,7 +941,7 @@ function PartesDiarios() {
                   <div className="partes-tarjeta-header" onClick={() => alternarDivisionStats(label)}>
                     <div style={{ flex: 1 }}>
                       <div className="partes-tarjeta-nombre">{label}</div>
-                      <div className="partes-ranking-subtitulo">{ausentes}h ausente / {posibles}h posibles · {pct}% de ausentismo</div>
+                      <div className="partes-ranking-subtitulo">{formatoAusente(ausentes, label)} ausente / {formatoAusente(posibles, label)} posibles · {pct}% de ausentismo</div>
                     </div>
                     <span className="partes-badge partes-badge-alerta">{personas.length} persona{personas.length !== 1 ? 's' : ''}</span>
                     <span className={`partes-chevron ${abierta ? 'partes-chevron-abierto' : ''}`}>▼</span>
@@ -806,13 +955,13 @@ function PartesDiarios() {
                             <div className="partes-fila-detalle-encabezado">
                               <span>{p.nombre}</span>
                               <span className="partes-fila-detalle-badges">
-                                <span className="partes-badge">{p.ausentes}h / {p.posibles}h</span>
+                                <span className="partes-badge">{formatoAusente(p.ausentes, label)} / {formatoAusente(p.posibles, label)}</span>
                                 <span className="partes-badge partes-badge-alerta">{pctPersona}%</span>
                               </span>
                             </div>
                             <div className="partes-fila-detalle-fechas">
                               {p.fechas.map((f, i) => (
-                                <span key={i}>{f.fecha.split('-').reverse().join('/')} · {f.cargoNombre} ({f.horas}h){i < p.fechas.length - 1 ? ', ' : ''}</span>
+                                <span key={i}>{f.fecha.split('-').reverse().join('/')} · {f.cargoNombre} ({formatoAusente(f.horas, label)}){i < p.fechas.length - 1 ? ', ' : ''}</span>
                               ))}
                             </div>
                           </div>
@@ -925,13 +1074,14 @@ function PartesDiarios() {
 
                 <div className="alumnos-formulario-fila">
                   <div>
-                    <label>Horas afectadas</label>
+                    <label>{formularioHist.tipo === 'cargo' ? 'Días afectados' : 'Horas afectadas'}</label>
                     <input
                       type="number"
-                      min="0.5"
-                      step="0.5"
+                      min={formularioHist.tipo === 'cargo' ? '1' : '0.5'}
+                      step={formularioHist.tipo === 'cargo' ? '1' : '0.5'}
                       value={formularioHist.horasAfectadas}
                       onChange={(e) => setFormularioHist({ ...formularioHist, horasAfectadas: e.target.value })}
+                      disabled={formularioHist.tipo === 'cargo'}
                       required
                     />
                   </div>

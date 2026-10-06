@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const cliente = axios.create({
-  baseURL: 'http://localhost:3001/api'
+  // En Vercel, VITE_API_URL apunta al backend publicado
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 });
 
 // Antes de cada pedido, si hay un token guardado, lo agregamos automáticamente

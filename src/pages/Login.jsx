@@ -21,7 +21,10 @@ function Login() {
       await iniciarSesion(nombreUsuario, password);
       navegar('/');
     } catch (err) {
-      setError('Usuario o contraseña incorrectos');
+      // 429 = demasiados intentos fallidos: el backend dice cuánto esperar
+      setError(err.response?.status === 429
+        ? err.response.data.error
+        : 'Usuario o contraseña incorrectos');
     } finally {
       setCargando(false);
     }

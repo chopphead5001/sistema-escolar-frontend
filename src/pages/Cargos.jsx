@@ -5,7 +5,7 @@ import cliente from '../api/cliente';
 import './Alumnos.css';
 import './Cargos.css';
 import './MateriasAdeudadas.css';
-import { MODULOS_DOCENTE, DIAS_SEMANA, bloqueEsModuloFijo, resumenHorario as resumenBloques, licenciaVigenteEn } from '../constants/horarios';
+import { MODULOS_DOCENTE, DIAS_SEMANA, bloqueEsModuloFijo, bloqueVigenteEn, resumenHorario as resumenBloques, licenciaVigenteEn } from '../constants/horarios';
 
 const ETIQUETA_TIPO_NOMBRE_CARGO = { DOCENTE: 'Docente', ADMINISTRATIVO: 'Administrativo' };
 
@@ -200,7 +200,7 @@ function Cargos() {
       divisionId: cargo.divisionId || '',
       horasCatedra: cargo.horasCatedra || ''
     });
-    const bloquesDelCargo = (cargo.bloquesHorario || []).map((b) => ({ diaSemana: b.diaSemana, horaInicio: b.horaInicio, horaFin: b.horaFin }));
+    const bloquesDelCargo = (cargo.bloquesHorario || []).filter((b) => bloqueVigenteEn(b)).map((b) => ({ diaSemana: b.diaSemana, horaInicio: b.horaInicio, horaFin: b.horaFin }));
     setBloques(bloquesDelCargo);
     // Si ya tiene algún horario que no encaja en la grilla de módulos (ej. Educación
     // Física cargada como horario propio), abrir directamente en modo horario propio.

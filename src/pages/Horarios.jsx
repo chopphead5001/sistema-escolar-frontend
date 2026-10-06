@@ -6,7 +6,7 @@ import './Alumnos.css';
 import './Cargos.css';
 import './MateriasAdeudadas.css';
 import './Horarios.css';
-import { MODULOS_DOCENTE, DIAS_SEMANA, ETIQUETA_TURNO, bloqueEsModuloFijo, bloqueEsContraturno, resumenHorario, colorMateria, colorMateriaEnAnio, construirMapaColoresPorAnio, licenciaVigenteEn } from '../constants/horarios';
+import { MODULOS_DOCENTE, DIAS_SEMANA, ETIQUETA_TURNO, bloqueEsModuloFijo, bloqueEsContraturno, bloqueVigenteEn, resumenHorario, colorMateria, colorMateriaEnAnio, construirMapaColoresPorAnio, licenciaVigenteEn } from '../constants/horarios';
 
 // Resuelve, para un cargo "real" (no generado por otra licencia), quién lo
 // ocupa en este momento: si tiene una licencia vigente hoy y existe un cargo
@@ -64,12 +64,20 @@ function cadenaCompletaDe(cargoCualquiera, todosLosCargos) {
 // Un bloque entra a la grilla de módulos fijos solo si además de calzar con un
 // módulo, cae en el turno propio de la división: uno que calce con un módulo
 // pero del turno contrario sigue siendo contraturno (ver bloqueEsContraturno).
+// Esta grilla es del horario ACTUAL (para editarlo), no de una fecha puntual
+// del pasado — por eso se filtra a los bloques todavía vigentes, dejando
+// afuera versiones viejas ya cerradas por un cambio de horario anterior (ver
+// bloqueVigenteEn en constants/horarios).
+function bloquesVigentesDe(cargo) {
+  return (cargo.bloquesHorario || []).filter((b) => bloqueVigenteEn(b));
+}
+
 function bloquesAlineados(cargo, turnoDivision) {
-  return (cargo.bloquesHorario || []).filter((b) => bloqueEsModuloFijo(b) && !bloqueEsContraturno(b, turnoDivision));
+  return bloquesVigentesDe(cargo).filter((b) => bloqueEsModuloFijo(b) && !bloqueEsContraturno(b, turnoDivision));
 }
 
 function bloquesSueltos(cargo, turnoDivision) {
-  return (cargo.bloquesHorario || []).filter((b) => bloqueEsContraturno(b, turnoDivision));
+  return bloquesVigentesDe(cargo).filter((b) => bloqueEsContraturno(b, turnoDivision));
 }
 
 function cargosEnCelda(listaCargos, dia, modulo, turnoDivision) {
@@ -309,7 +317,7 @@ function Horarios() {
   }, [cicloLectivo, esSecretaria]);
 
   function reemplazarBloque(cargo, viejo, nuevo) {
-    const bloques = (cargo.bloquesHorario || []).map((b) => ({ diaSemana: b.diaSemana, horaInicio: b.horaInicio, horaFin: b.horaFin }));
+    const bloques = bloquesVigentesDe(cargo).map((b) => ({ diaSemana: b.diaSemana, horaInicio: b.horaInicio, horaFin: b.horaFin }));
     const indice = bloques.findIndex((b) =>
       b.diaSemana === viejo.diaSemana && b.horaInicio === viejo.horaInicio && b.horaFin === viejo.horaFin
     );
@@ -360,7 +368,7 @@ function Horarios() {
     try {
       if (destino.cargoId && destino.cargoId === origen.cargoId) {
         for (const cargoDeCadena of cadenaOrigen) {
-          let bloques = (cargoDeCadena.bloquesHorario || []).map((b) => ({ diaSemana: b.diaSemana, horaInicio: b.horaInicio, horaFin: b.horaFin }));
+          let bloques = bloquesVigentesDe(cargoDeCadena).map((b) => ({ diaSemana: b.diaSemana, horaInicio: b.horaInicio, horaFin: b.horaFin }));
           bloques = bloques.map((b) => {
             if (b.diaSemana === origen.diaSemana && b.horaInicio === origen.horaInicio && b.horaFin === origen.horaFin) {
               return { diaSemana: destino.diaSemana, horaInicio: destino.horaInicio, horaFin: destino.horaFin };
